@@ -7,7 +7,7 @@ export default defineConfig({
   },
   build: {
     lib: {
-      entry: resolve(__dirname, "lib/main.js"),
+      entry: resolve(__dirname, "lib/main.ts"),
       name: "nanofetch",
       // the proper extensions will be added
       fileName: "nanofetch",
