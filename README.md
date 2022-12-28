@@ -1,5 +1,4 @@
 TODO:
-- refetch on subsequent subcription (using deduping though)
 - conditional fetch on `null` keys?
 - mutator
 - (possibly that will require map/set changes):

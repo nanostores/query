@@ -1,4 +1,4 @@
-import { atom, onMount, ReadableAtom, WritableAtom } from "nanostores";
+import { atom, onStart, onStop, ReadableAtom, WritableAtom } from "nanostores";
 
 export type KeyInput = Array<string | ReadableAtom<string>>;
 
@@ -45,7 +45,7 @@ export const nanofetch = ({
     settings: CommonSettings
   ) => {
     const {
-      dedupeTime,
+      dedupeTime = 4000,
       fetcher,
       refetchOnFocus,
       refetchOnReconnect,
@@ -67,7 +67,7 @@ export const nanofetch = ({
     }
 
     const last = _lastFetch.get(key);
-    if (last && dedupeTime && last + dedupeTime > now) {
+    if (last && last + dedupeTime > now) {
       // Deduping the request: it's been sent not so long ago
       return;
     }
@@ -80,7 +80,12 @@ export const nanofetch = ({
     _runningFetches.add(key);
 
     fetcher!(...keyParts)
-      .then((r: any) => store.set({ data: r, loading: false }))
+      .then((r: any) => {
+        const res = { data: r, loading: false };
+        cache.set(key, res);
+        store.set(res);
+        _lastFetch.set(key, getNow());
+      })
       .catch((error: any) => store.set({ error, loading: false }))
       .finally(() => _runningFetches.delete(key));
   };
@@ -118,23 +123,43 @@ export const nanofetch = ({
       const fetcherStore = atom() as unknown as FetcherStore<T>,
         settings = { ...globalSettings, ...fetcherSettings, fetcher };
 
-      onMount(fetcherStore, () => {
-        const [keyStore, keyInternalUnsub] = getKeyStore(keys);
-        let [prevKey, prevKeyParts] = keyStore.get();
-        handleStoreKeysChange([prevKey, prevKeyParts], fetcherStore, settings);
+      let keysInternalUnsub: () => void,
+        prevKey: Key,
+        prevKeyParts: KeyParts,
+        keyUnsub: () => void;
+      let keyStore: ReturnType<typeof getKeyStore>[0];
 
-        const keyUnsub = keyStore.listen(([newKey, keyParts]) => {
+      onStart(fetcherStore, () => {
+        const firstRun = !keysInternalUnsub;
+        [keyStore, keysInternalUnsub] = getKeyStore(keys);
+        [prevKey, prevKeyParts] = keyStore.get();
+        keyUnsub = keyStore.listen(([newKey, keyParts]) => {
           handleRequestUnmount(prevKey);
           handleStoreKeysChange([newKey, keyParts], fetcherStore, settings);
           prevKey = newKey;
           prevKeyParts = keyParts;
         });
+        if (firstRun) handleNewListener();
+      });
+      const handleNewListener = () => {
+        if (prevKeyParts)
+          handleStoreKeysChange(
+            [prevKey, prevKeyParts],
+            fetcherStore,
+            settings
+          );
+      };
 
-        return () => {
-          keyInternalUnsub();
-          keyUnsub();
-          handleRequestUnmount(prevKey);
-        };
+      const originListen = fetcherStore.listen;
+      fetcherStore.listen = (listener) => {
+        handleNewListener();
+        return originListen(listener);
+      };
+
+      onStop(fetcherStore, () => {
+        keysInternalUnsub();
+        keyUnsub();
+        handleRequestUnmount(prevKey);
       });
 
       return fetcherStore;
