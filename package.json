@@ -13,20 +13,21 @@
   "files": [
     "dist"
   ],
-  "main": "./dist/my-lib.umd.cjs",
-  "module": "./dist/my-lib.js",
+  "main": "./dist/nanofetch.umd.cjs",
+  "module": "./dist/nanofetch.js",
   "exports": {
     ".": {
-      "import": "./dist/my-lib.js",
-      "require": "./dist/my-lib.umd.cjs"
+      "import": "./dist/nanofetch.js",
+      "require": "./dist/nanofetch.umd.cjs"
     }
   },
   "devDependencies": {
+    "nanostores": "^0.7.1",
     "typescript": "^4.9.4",
     "vite": "^3.0.4",
     "vitest": "^0.26.2"
   },
-  "dependencies": {
+  "peerDependencies": {
     "nanostores": "^0.7.1"
   }
 }

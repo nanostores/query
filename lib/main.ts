@@ -1,9 +1,9 @@
 import { atom, onStart, onStop, ReadableAtom, WritableAtom } from "nanostores";
 
-export type KeyInput = Array<string | ReadableAtom<string>>;
+export type KeyInput = Array<string | ReadableAtom<string | null>>;
 
-type KeyParts = string[];
 type Key = string;
+type KeyParts = Key[];
 
 export type Fetcher = (...args: KeyParts) => Promise<any>;
 type RefetchSettings = {
@@ -79,6 +79,10 @@ export const nanofetch = ({
     _lastFetch.set(key, now);
     _runningFetches.add(key);
 
+    if (!keyParts) {
+      console.log(new Error());
+    }
+
     fetcher!(...keyParts)
       .then((r: any) => {
         const res = { data: r, loading: false };
@@ -90,7 +94,9 @@ export const nanofetch = ({
       .finally(() => _runningFetches.delete(key));
   };
 
-  const handleRequestUnmount = (key: Key) => {
+  const handleRequestUnmount = (key?: Key) => {
+    if (!key) return;
+
     _refetchOnFocus.delete(key);
     _refetchOnReconnect.delete(key);
     clearInterval(_refetchOnInterval.get(key));
@@ -105,7 +111,7 @@ export const nanofetch = ({
       cache.set(key, loadingState);
     }
     // Waiting for a tick to happen, otherwise value isn't propagated to `.listen`
-    setTimeout(() => store.set(cache.get(key)));
+    callAfterTick(() => store.set(cache.get(key)));
 
     runFetcher([key, keyParts], store, settings);
   };
@@ -124,25 +130,35 @@ export const nanofetch = ({
         settings = { ...globalSettings, ...fetcherSettings, fetcher };
 
       let keysInternalUnsub: () => void,
-        prevKey: Key,
-        prevKeyParts: KeyParts,
-        keyUnsub: () => void;
-      let keyStore: ReturnType<typeof getKeyStore>[0];
+        prevKey: Key | undefined,
+        prevKeyParts: KeyParts | undefined,
+        keyUnsub: () => void,
+        keyStore: ReturnType<typeof getKeyStore>[0];
 
       onStart(fetcherStore, () => {
         const firstRun = !keysInternalUnsub;
         [keyStore, keysInternalUnsub] = getKeyStore(keys);
-        [prevKey, prevKeyParts] = keyStore.get();
-        keyUnsub = keyStore.listen(([newKey, keyParts]) => {
-          handleRequestUnmount(prevKey);
-          handleStoreKeysChange([newKey, keyParts], fetcherStore, settings);
-          prevKey = newKey;
-          prevKeyParts = keyParts;
+        keyUnsub = keyStore.listen((currentKeys) => {
+          if (currentKeys) {
+            const [newKey, keyParts] = currentKeys;
+            handleRequestUnmount(prevKey);
+            handleStoreKeysChange([newKey, keyParts], fetcherStore, settings);
+            prevKey = newKey;
+            prevKeyParts = keyParts;
+          }
         });
-        if (firstRun) handleNewListener();
+
+        const currentKeyValue = keyStore.get();
+        if (currentKeyValue) {
+          [prevKey, prevKeyParts] = currentKeyValue;
+          if (firstRun) handleNewListener();
+        } else {
+          callAfterTick(() => fetcherStore.set({ loading: true }));
+        }
       });
+
       const handleNewListener = () => {
-        if (prevKeyParts)
+        if (prevKey && prevKeyParts)
           handleStoreKeysChange(
             [prevKey, prevKeyParts],
             fetcherStore,
@@ -172,11 +188,15 @@ export const nanofetch = ({
 };
 
 const getKeyStore = (keys: KeyInput) => {
-  let keyStore = atom<[Key, KeyParts]>(void 0 as any),
-    keyParts: string[] = [];
+  let keyStore = atom<[Key, KeyParts] | null>(null),
+    keyParts: Array<string | null> = [];
 
   const setKeyStoreValue = () => {
-    keyStore.set([keyParts.join(""), keyParts]);
+    if (keyParts.some((v) => v === null)) {
+      keyStore.set(null);
+    } else {
+      keyStore.set([keyParts.join(""), keyParts as KeyParts]);
+    }
   };
 
   const unsubs: Array<() => void> = [];
@@ -202,3 +222,5 @@ const getKeyStore = (keys: KeyInput) => {
 };
 
 const getNow = () => new Date().getTime();
+
+const callAfterTick = (fn: () => void) => setTimeout(fn);

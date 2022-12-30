@@ -134,6 +134,27 @@ test("do not send request if it was sent before dedupe time", () =>
     })();
   }));
 
+test("nullable keys disable network fetching, but enable once are set", () =>
+  new Promise<void>((done, reject) => {
+    const $id = atom<string | null>(null);
+
+    const keys = ["/api", "/key/", $id];
+    const fetcher = vi
+      .fn()
+      .mockImplementation(() => new Promise((r) => r("data")));
+
+    const store = makeFetcher(keys, { fetcher });
+    storeValueSequence(done, reject, store, [
+      { loading: true },
+      { data: "data", loading: false },
+    ]);
+    (async function () {
+      await delay(1);
+      $id.set("id2");
+      done();
+    })();
+  }));
+
 function storeValueSequence(
   done: () => void,
   reject: (err: unknown) => void,
