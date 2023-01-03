@@ -112,8 +112,6 @@ Temporary Items
 public/bundle.*
 /cypress/screenshots/
 build/
-dist/
-
 
 # dotenv environment variables file
 .env
