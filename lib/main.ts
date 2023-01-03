@@ -5,7 +5,7 @@ export type KeyInput = Array<string | ReadableAtom<string | null>>;
 type Key = string;
 type KeyParts = Key[];
 
-export type Fetcher = (...args: KeyParts) => Promise<any>;
+export type Fetcher = (...args: KeyParts) => Promise<unknown>;
 type RefetchSettings = {
   dedupeTime?: number;
   refetchOnFocus?: boolean;
@@ -39,7 +39,10 @@ export const nanofetch = ({
     _lastFetch = new Map<Key, number>(),
     _runningFetches = new Set<Key>();
 
-  const runFetcher = (
+  // Used for testing to have the highest say in settings hierarchy
+  let rewrittenSettings: CommonSettings = {};
+
+  const runFetcher = async (
     [key, keyParts]: [Key, KeyParts],
     store: FetcherStore,
     settings: CommonSettings
@@ -50,7 +53,7 @@ export const nanofetch = ({
       refetchOnFocus,
       refetchOnReconnect,
       refetchInterval,
-    } = settings;
+    } = { ...settings, ...rewrittenSettings };
 
     const now = getNow();
 
@@ -126,7 +129,7 @@ export const nanofetch = ({
         );
       }
 
-      const fetcherStore = atom() as unknown as FetcherStore<T>,
+      const fetcherStore: FetcherStore<T> = atom({ loading: true }),
         settings = { ...globalSettings, ...fetcherSettings, fetcher };
 
       let keysInternalUnsub: () => void,
@@ -184,7 +187,20 @@ export const nanofetch = ({
       // TODO
     };
 
-  return [createFetcherStore, createMutatorStore] as const;
+  const __unsafeOverruleSettings = (data: CommonSettings) => {
+    if (process.env.NODE_ENV !== "test") {
+      console.warn(
+        `You should only use __unsafeOverruleSettings in test environment`
+      );
+    }
+    rewrittenSettings = data;
+  };
+
+  return [
+    createFetcherStore,
+    createMutatorStore,
+    __unsafeOverruleSettings,
+  ] as const;
 };
 
 const getKeyStore = (keys: KeyInput) => {

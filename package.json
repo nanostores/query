@@ -13,12 +13,10 @@
   "files": [
     "dist"
   ],
-  "main": "./dist/nanofetch.umd.cjs",
-  "module": "./dist/nanofetch.js",
+  "module": "./lib/main.ts",
   "exports": {
     ".": {
-      "import": "./dist/nanofetch.js",
-      "require": "./dist/nanofetch.umd.cjs"
+      "import": "./lib/main.ts"
     }
   },
   "devDependencies": {

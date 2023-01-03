@@ -2,10 +2,11 @@ import { atom, ReadableAtom } from "nanostores";
 import { nanofetch } from "../main";
 
 let makeFetcher: ReturnType<typeof nanofetch>[0],
-  makeMutator: ReturnType<typeof nanofetch>[1];
+  makeMutator: ReturnType<typeof nanofetch>[1],
+  __unsafeOverruleSettings: ReturnType<typeof nanofetch>[2];
 
 beforeEach(() => {
-  [makeFetcher, makeMutator] = nanofetch();
+  [makeFetcher, makeMutator, __unsafeOverruleSettings] = nanofetch();
 });
 afterEach(() => {
   vi.restoreAllMocks();
@@ -151,6 +152,28 @@ test("nullable keys disable network fetching, but enable once are set", () =>
     (async function () {
       await delay(1);
       $id.set("id2");
+      done();
+    })();
+  }));
+
+test("__unsafeOverruleSettings overrides everything", () =>
+  new Promise<void>((done, reject) => {
+    const keys = ["/api", "/key"];
+    const fetcher1 = vi
+      .fn()
+      .mockImplementation(() => new Promise((r) => r(null)));
+    const fetcher2 = vi
+      .fn()
+      .mockImplementation(() => new Promise((r) => r(null)));
+
+    const store = makeFetcher(keys, { fetcher: fetcher1 });
+    __unsafeOverruleSettings({ fetcher: fetcher2 });
+
+    storeValueSequence(done, reject, store, [{ data: null, loading: false }]);
+    (async function () {
+      await delay(1);
+      expect(fetcher1).toBeCalledTimes(0);
+      expect(fetcher2).toBeCalledTimes(1);
       done();
     })();
   }));
