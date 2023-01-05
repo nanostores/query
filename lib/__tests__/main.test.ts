@@ -169,12 +169,51 @@ test("__unsafeOverruleSettings overrides everything", () =>
     const store = makeFetcher(keys, { fetcher: fetcher1 });
     __unsafeOverruleSettings({ fetcher: fetcher2 });
 
-    storeValueSequence(done, reject, store, [{ data: null, loading: false }]);
+    storeValueSequence(() => null, reject, store, [
+      { data: null, loading: false },
+    ]);
     (async function () {
       await delay(1);
       expect(fetcher1).toBeCalledTimes(0);
       expect(fetcher2).toBeCalledTimes(1);
       done();
+    })();
+  }));
+
+test("uses stale cache without setting loading state", () =>
+  new Promise<void>((done, reject) => {
+    const $id = atom<string>("id1");
+    const res: Record<string, string> = {
+      id1: "id1Value",
+      id2: "id2Value",
+    };
+
+    const keys = ["/api", "/key/", $id];
+    let counter = 0;
+    const fetcher = vi.fn().mockImplementation(
+      (...keys: string[]) =>
+        new Promise((r) =>
+          setTimeout(() => {
+            r(res[keys[2]] + counter);
+            counter++;
+          }, 10)
+        )
+    );
+
+    const store = makeFetcher(keys, { fetcher, dedupeTime: 0 });
+    storeValueSequence(done, reject, store, [
+      { loading: true },
+      { data: "id1Value0", loading: false },
+      { loading: true },
+      { data: "id2Value1", loading: false },
+      { data: "id1Value0", loading: false },
+      { data: "id1Value2", loading: false },
+    ]);
+    (async function () {
+      await delay(20);
+      $id.set("id2");
+      await delay(20);
+      $id.set("id1");
     })();
   }));
 

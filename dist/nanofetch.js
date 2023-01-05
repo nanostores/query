@@ -36,7 +36,10 @@ const A = ({
     T(() => l.set(r.get(e))), F([e, c], l, t);
   };
   return [
-    (e, { fetcher: c = d, ...l } = {}) => {
+    (e, {
+      fetcher: c = d,
+      ...l
+    } = {}) => {
       if (process.env.NODE_ENV !== "production" && !c)
         throw new Error(
           "You need to set up either global fetcher of fetcher in createFetcherStore"

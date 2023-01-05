@@ -5,15 +5,15 @@ export type KeyInput = Array<string | ReadableAtom<string | null>>;
 type Key = string;
 type KeyParts = Key[];
 
-export type Fetcher = (...args: KeyParts) => Promise<unknown>;
+export type Fetcher<T> = (...args: KeyParts) => Promise<T>;
 type RefetchSettings = {
   dedupeTime?: number;
   refetchOnFocus?: boolean;
   refetchOnReconnect?: boolean;
   refetchInterval?: number;
 };
-type CommonSettings = {
-  fetcher?: Fetcher;
+type CommonSettings<T = unknown> = {
+  fetcher?: Fetcher<T>;
 } & RefetchSettings;
 
 type NanofetchArgs = {
@@ -121,7 +121,10 @@ export const nanofetch = ({
 
   const createFetcherStore = <T = unknown>(
       keys: KeyInput,
-      { fetcher = globalFetcher, ...fetcherSettings }: CommonSettings = {}
+      {
+        fetcher = globalFetcher as Fetcher<T>,
+        ...fetcherSettings
+      }: CommonSettings<T> = {}
     ) => {
       if (process.env.NODE_ENV !== "production" && !fetcher) {
         throw new Error(

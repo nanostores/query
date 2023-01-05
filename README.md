@@ -6,6 +6,7 @@ TODO:
   - add document.focus event handler
   - add blur + reconnect event handler + interval
 - mutator
+- support for ssr?
 
 ideas for future:
 1. steal some ideas from here: https://swr.vercel.app/docs/api#options
