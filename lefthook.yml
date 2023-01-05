@@ -1,0 +1,11 @@
+pre-commit:
+  commands:
+    build:
+      run: pnpm testrun && pnpm check && pnpm build && git add dist/*
+
+post-merge: &post-merge
+  commands:
+    deps:
+      run: pnpm i --frozen-lockfile
+
+post-checkout: *post-merge

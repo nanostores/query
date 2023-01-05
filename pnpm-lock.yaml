@@ -1,6 +1,7 @@
 lockfileVersion: 5.4
 
 specifiers:
+  '@evilmartians/lefthook': ^1.2.6
   nanostores: ^0.7.1
   typescript: ^4.9.4
   vite: ^3.0.4
@@ -8,6 +9,7 @@ specifiers:
   vitest: ^0.26.2
 
 devDependencies:
+  '@evilmartians/lefthook': 1.2.6
   nanostores: 0.7.1
   typescript: 4.9.4
   vite: 3.0.4
@@ -24,6 +26,14 @@ packages:
     requiresBuild: true
     dev: true
     optional: true
+
+  /@evilmartians/lefthook/1.2.6:
+    resolution: {integrity: sha512-9UgQbxadeFY2G+VhnWuyDzd394Oxpgm6NXCmDPQBfz/HUKHUN57PhqE14VXjZbzZfCnyhIIJW8rxlXcAI3HORQ==}
+    cpu: [x64, arm64, ia32]
+    os: [darwin, linux, win32]
+    hasBin: true
+    requiresBuild: true
+    dev: true
 
   /@microsoft/api-extractor-model/7.25.3:
     resolution: {integrity: sha512-WWxBUq77p2iZ+5VF7Nmrm3y/UtqCh5bYV8ii3khwq3w99+fXWpvfsAhgSLsC7k8XDQc6De4ssMxH6He/qe1pzg==}

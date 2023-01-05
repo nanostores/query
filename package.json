@@ -4,7 +4,9 @@
   "description": "",
   "scripts": {
     "build": "vite build",
-    "test": "vitest"
+    "check": "tsc --noEmit",
+    "test": "vitest",
+    "testrun": "vitest run"
   },
   "keywords": [],
   "author": "Dan Kozlov <dkzlv@pm.me>",
@@ -23,6 +25,7 @@
     }
   },
   "devDependencies": {
+    "@evilmartians/lefthook": "^1.2.6",
     "nanostores": "^0.7.1",
     "typescript": "^4.9.4",
     "vite": "^3.0.4",
@@ -31,5 +34,9 @@
   },
   "peerDependencies": {
     "nanostores": "^0.7.1"
+  },
+  "engines": {
+    "pnpm": "7",
+    "node": "18"
   }
 }
