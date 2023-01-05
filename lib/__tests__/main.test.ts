@@ -1,4 +1,4 @@
-import { atom, ReadableAtom } from "nanostores";
+import { atom, keepMount, ReadableAtom } from "nanostores";
 import { nanofetch } from "../main";
 
 let makeFetcher: ReturnType<typeof nanofetch>[0],
@@ -214,6 +214,38 @@ test("uses stale cache without setting loading state", () =>
       $id.set("id2");
       await delay(20);
       $id.set("id1");
+    })();
+  }));
+
+test.only("creates interval fetching; disables it once we change key", () =>
+  new Promise<void>((done, reject) => {
+    const $id = atom<string | null>(null);
+    const keys = ["/api", "/key/", $id];
+    const fetcher = vi
+      .fn()
+      .mockImplementation(() => new Promise((r) => r(null)));
+
+    const store = makeFetcher(keys, {
+      fetcher,
+      dedupeTime: 0,
+      refetchInterval: 5,
+    });
+    const unsub = store.listen(() => null);
+    (async function () {
+      try {
+        $id.set("");
+        await delay(1);
+        expect(fetcher).toHaveBeenCalledOnce();
+        await delay(23);
+        expect(fetcher).toHaveBeenCalledTimes(5);
+        $id.set(null);
+        await delay(20);
+        expect(fetcher).toHaveBeenCalledTimes(5);
+        unsub();
+        done();
+      } catch (error) {
+        reject(error);
+      }
     })();
   }));
 

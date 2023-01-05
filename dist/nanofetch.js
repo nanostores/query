@@ -1,71 +1,71 @@
 import { atom as V, onStart as D, onStop as U } from "nanostores";
 const A = ({
   cache: r = /* @__PURE__ */ new Map(),
-  fetcher: d,
+  fetcher: g,
   ...o
 } = {}) => {
-  const g = /* @__PURE__ */ new Set(), S = /* @__PURE__ */ new Set(), n = /* @__PURE__ */ new Map(), s = /* @__PURE__ */ new Map(), w = /* @__PURE__ */ new Set();
-  let O = {};
-  const F = async ([e, c], l, t) => {
+  const d = /* @__PURE__ */ new Set(), S = /* @__PURE__ */ new Set(), n = /* @__PURE__ */ new Map(), c = /* @__PURE__ */ new Map(), p = /* @__PURE__ */ new Set();
+  let F = {};
+  const E = async ([e, l], a, t) => {
     const {
       dedupeTime: i = 4e3,
-      fetcher: p,
-      refetchOnFocus: a,
+      fetcher: w,
+      refetchOnFocus: s,
       refetchOnReconnect: u,
       refetchInterval: _
-    } = { ...t, ...O }, f = R();
-    a && g.add(e), u && S.add(e), _ && !n.has(e) && n.set(
+    } = { ...t, ...F }, f = R();
+    s && d.add(e), u && S.add(e), _ && !n.has(e) && n.set(
       e,
-      window.setInterval(
-        () => F([e, c], l, t),
+      setInterval(
+        () => E([e, l], a, t),
         _
       )
     );
-    const v = s.get(e);
-    v && v + i > f || w.has(e) || (s.set(e, f), w.add(e), c || console.log(new Error()), p(...c).then((m) => {
+    const v = c.get(e);
+    v && v + i > f || p.has(e) || (c.set(e, f), p.add(e), l || console.log(new Error()), w(...l).then((m) => {
       const h = { data: m, loading: !1 };
-      r.set(e, h), l.set(h), s.set(e, R());
-    }).catch((m) => l.set({ error: m, loading: !1 })).finally(() => w.delete(e)));
-  }, E = (e) => {
-    !e || (g.delete(e), S.delete(e), clearInterval(n.get(e)));
-  }, K = ([e, c], l, t) => {
+      r.set(e, h), a.set(h), c.set(e, R());
+    }).catch((m) => a.set({ error: m, loading: !1 })).finally(() => p.delete(e)));
+  }, O = (e) => {
+    !e || (d.delete(e), S.delete(e), clearInterval(n.get(e)));
+  }, K = ([e, l], a, t) => {
     if (!r.has(e)) {
       const i = { loading: !0 };
       r.set(e, i);
     }
-    T(() => l.set(r.get(e))), F([e, c], l, t);
+    T(() => a.set(r.get(e))), E([e, l], a, t);
   };
   return [
     (e, {
-      fetcher: c = d,
-      ...l
+      fetcher: l = g,
+      ...a
     } = {}) => {
-      if (process.env.NODE_ENV !== "production" && !c)
+      if (process.env.NODE_ENV !== "production" && !l)
         throw new Error(
           "You need to set up either global fetcher of fetcher in createFetcherStore"
         );
-      const t = V({ loading: !0 }), i = { ...o, ...l, fetcher: c };
-      let p, a, u, _, f;
+      const t = V({ loading: !0 }), i = { ...o, ...a, fetcher: l };
+      let w, s, u, _, f;
       D(t, () => {
-        const h = !p;
-        [f, p] = L(e), _ = f.listen((I) => {
-          if (I) {
+        const h = !w;
+        [f, w] = L(e), _ = f.listen((I) => {
+          if (O(s), I) {
             const [M, b] = I;
-            E(a), K([M, b], t, i), a = M, u = b;
+            O(s), K([M, b], t, i), s = M, u = b;
           }
         });
         const N = f.get();
-        N ? ([a, u] = N, h && v()) : T(() => t.set({ loading: !0 }));
+        N ? ([s, u] = N, h && v()) : T(() => t.set({ loading: !0 }));
       });
       const v = () => {
-        a && u && K(
-          [a, u],
+        s && u && K(
+          [s, u],
           t,
           i
         );
       }, m = t.listen;
       return t.listen = (h) => (v(), m(h)), U(t, () => {
-        p(), _(), E(a);
+        w(), _(), O(s);
       }), t;
     },
     (e) => {
@@ -73,27 +73,27 @@ const A = ({
     (e) => {
       process.env.NODE_ENV !== "test" && console.warn(
         "You should only use __unsafeOverruleSettings in test environment"
-      ), O = e;
+      ), F = e;
     }
   ];
 }, L = (r) => {
-  let d = V(null), o = [];
-  const g = () => {
-    o.some((n) => n === null) ? d.set(null) : d.set([o.join(""), o]);
+  let g = V(null), o = [];
+  const d = () => {
+    o.some((n) => n === null) ? g.set(null) : g.set([o.join(""), o]);
   }, S = [];
   for (let n = 0; n < r.length; n++) {
-    const s = r[n];
-    if (typeof s == "string") {
-      o.push(s);
+    const c = r[n];
+    if (typeof c == "string") {
+      o.push(c);
       continue;
     }
-    o.push(s.get()), S.push(
-      s.listen((w) => {
-        o[n] = w, g();
+    o.push(c.get()), S.push(
+      c.listen((p) => {
+        o[n] = p, d();
       })
     );
   }
-  return g(), [d, () => S.forEach((n) => n())];
+  return d(), [g, () => S.forEach((n) => n())];
 }, R = () => new Date().getTime(), T = (r) => setTimeout(r);
 export {
   A as nanofetch

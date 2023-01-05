@@ -62,10 +62,10 @@ export const nanofetch = ({
     if (refetchInterval && !_refetchOnInterval.has(key)) {
       _refetchOnInterval.set(
         key,
-        window.setInterval(
+        setInterval(
           () => runFetcher([key, keyParts], store, settings),
           refetchInterval
-        )
+        ) as unknown as number
       );
     }
 
@@ -145,6 +145,8 @@ export const nanofetch = ({
         const firstRun = !keysInternalUnsub;
         [keyStore, keysInternalUnsub] = getKeyStore(keys);
         keyUnsub = keyStore.listen((currentKeys) => {
+          handleRequestUnmount(prevKey);
+
           if (currentKeys) {
             const [newKey, keyParts] = currentKeys;
             handleRequestUnmount(prevKey);
