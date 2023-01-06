@@ -3,8 +3,8 @@ TODO:
   - making a map where we'd store all fetcher store arguments (keys, store, settings),
   and a singular set that requires refetching due _to any reasons_. Run all fetchers
   from there each time
-  - add document.focus event handler
-  - add blur + reconnect event handler + interval
+  - add document.focus + reconnect event handler
+  - disable interval if we're unfocused
 - mutator
 - support for ssr?
 

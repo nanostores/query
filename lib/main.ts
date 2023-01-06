@@ -1,11 +1,13 @@
 import { atom, onStart, onStop, ReadableAtom, WritableAtom } from "nanostores";
 
+type MaybePromise<T> = T | Promise<T>;
+
 export type KeyInput = Array<string | ReadableAtom<string | null>>;
 
 type Key = string;
 type KeyParts = Key[];
 
-export type Fetcher<T> = (...args: KeyParts) => Promise<T>;
+export type Fetcher<T> = (...args: KeyParts) => MaybePromise<T>;
 type RefetchSettings = {
   dedupeTime?: number;
   refetchOnFocus?: boolean;
@@ -27,6 +29,10 @@ export type FetcherValue<T = any, E = Error> = {
 };
 
 export type FetcherStore<T = any, E = Error> = WritableAtom<FetcherValue<T, E>>;
+export type FetcherStoreCreator<T = any, E = Error> = (
+  keys: KeyInput,
+  settings?: CommonSettings<T>
+) => FetcherStore<T, E>;
 
 export const nanofetch = ({
   cache = new Map(),
@@ -82,19 +88,16 @@ export const nanofetch = ({
     _lastFetch.set(key, now);
     _runningFetches.add(key);
 
-    if (!keyParts) {
-      console.log(new Error());
+    try {
+      const res = { data: await fetcher!(...keyParts), loading: false };
+      cache.set(key, res);
+      store.set(res);
+      _lastFetch.set(key, getNow());
+    } catch (error: any) {
+      store.set({ error, loading: false });
+    } finally {
+      _runningFetches.delete(key);
     }
-
-    fetcher!(...keyParts)
-      .then((r: any) => {
-        const res = { data: r, loading: false };
-        cache.set(key, res);
-        store.set(res);
-        _lastFetch.set(key, getNow());
-      })
-      .catch((error: any) => store.set({ error, loading: false }))
-      .finally(() => _runningFetches.delete(key));
   };
 
   const handleRequestUnmount = (key?: Key) => {
@@ -119,13 +122,13 @@ export const nanofetch = ({
     runFetcher([key, keyParts], store, settings);
   };
 
-  const createFetcherStore = <T = unknown>(
+  const createFetcherStore = <T = unknown, E = any>(
       keys: KeyInput,
       {
         fetcher = globalFetcher as Fetcher<T>,
         ...fetcherSettings
       }: CommonSettings<T> = {}
-    ) => {
+    ): FetcherStore<T, E> => {
       if (process.env.NODE_ENV !== "production" && !fetcher) {
         throw new Error(
           "You need to set up either global fetcher of fetcher in createFetcherStore"
@@ -186,7 +189,7 @@ export const nanofetch = ({
         handleRequestUnmount(prevKey);
       });
 
-      return fetcherStore;
+      return fetcherStore as FetcherStore<T, E>;
     },
     createMutatorStore = (mutator: any) => {
       // TODO

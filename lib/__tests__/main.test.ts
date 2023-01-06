@@ -217,7 +217,7 @@ test("uses stale cache without setting loading state", () =>
     })();
   }));
 
-test.only("creates interval fetching; disables it once we change key", () =>
+test("creates interval fetching; disables it once we change key", () =>
   new Promise<void>((done, reject) => {
     const $id = atom<string | null>(null);
     const keys = ["/api", "/key/", $id];

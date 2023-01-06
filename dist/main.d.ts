@@ -1,8 +1,9 @@
 import { ReadableAtom, WritableAtom } from "nanostores";
+declare type MaybePromise<T> = T | Promise<T>;
 export declare type KeyInput = Array<string | ReadableAtom<string | null>>;
 declare type Key = string;
 declare type KeyParts = Key[];
-export declare type Fetcher<T> = (...args: KeyParts) => Promise<T>;
+export declare type Fetcher<T> = (...args: KeyParts) => MaybePromise<T>;
 declare type RefetchSettings = {
     dedupeTime?: number;
     refetchOnFocus?: boolean;
@@ -21,5 +22,6 @@ export declare type FetcherValue<T = any, E = Error> = {
     loading: boolean;
 };
 export declare type FetcherStore<T = any, E = Error> = WritableAtom<FetcherValue<T, E>>;
-export declare const nanofetch: ({ cache, fetcher, ...globalSettings }?: NanofetchArgs) => readonly [<T = unknown>(keys: KeyInput, { fetcher, ...fetcherSettings }?: CommonSettings<T>) => FetcherStore<T, Error>, (mutator: any) => void, (data: CommonSettings) => void];
+export declare type FetcherStoreCreator<T = any, E = Error> = (keys: KeyInput, settings?: CommonSettings<T>) => FetcherStore<T, E>;
+export declare const nanofetch: ({ cache, fetcher, ...globalSettings }?: NanofetchArgs) => readonly [<T = unknown, E = any>(keys: KeyInput, { fetcher, ...fetcherSettings }?: CommonSettings<T>) => FetcherStore<T, E>, (mutator: any) => void, (data: CommonSettings) => void];
 export {};
