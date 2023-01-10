@@ -83,7 +83,9 @@ const nanofetch = ({
         "You need to set up either global fetcher of fetcher in createFetcherStore"
       );
     }
-    const fetcherStore = atom(), settings = { ...globalSettings, ...fetcherSettings, fetcher };
+    const fetcherStore = atom({
+      loading: true
+    }), settings = { ...globalSettings, ...fetcherSettings, fetcher };
     let keysInternalUnsub, prevKey, prevKeyParts, keyUnsub, keyStore;
     const evtUnsubs = [];
     onStart(fetcherStore, () => {
@@ -139,7 +141,7 @@ const nanofetch = ({
     onStop(fetcherStore, () => {
       keysInternalUnsub == null ? void 0 : keysInternalUnsub();
       evtUnsubs.forEach((fn) => fn());
-      keyUnsub();
+      keyUnsub == null ? void 0 : keyUnsub();
       const int = _refetchOnInterval.get(keyInput);
       if (int)
         clearInterval(int);

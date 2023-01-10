@@ -86,7 +86,9 @@
           "You need to set up either global fetcher of fetcher in createFetcherStore"
         );
       }
-      const fetcherStore = nanostores.atom(), settings = { ...globalSettings, ...fetcherSettings, fetcher };
+      const fetcherStore = nanostores.atom({
+        loading: true
+      }), settings = { ...globalSettings, ...fetcherSettings, fetcher };
       let keysInternalUnsub, prevKey, prevKeyParts, keyUnsub, keyStore;
       const evtUnsubs = [];
       nanostores.onStart(fetcherStore, () => {
@@ -142,7 +144,7 @@
       nanostores.onStop(fetcherStore, () => {
         keysInternalUnsub == null ? void 0 : keysInternalUnsub();
         evtUnsubs.forEach((fn) => fn());
-        keyUnsub();
+        keyUnsub == null ? void 0 : keyUnsub();
         const int = _refetchOnInterval.get(keyInput);
         if (int)
           clearInterval(int);

@@ -133,7 +133,9 @@ export const nanofetch = ({
         );
       }
 
-      const fetcherStore = atom() as unknown as FetcherStore<T>,
+      const fetcherStore: FetcherStore<T> = atom({
+          loading: true,
+        }),
         settings = { ...globalSettings, ...fetcherSettings, fetcher };
 
       let keysInternalUnsub: Fn,
@@ -202,7 +204,7 @@ export const nanofetch = ({
       onStop(fetcherStore, () => {
         keysInternalUnsub?.();
         evtUnsubs.forEach((fn) => fn());
-        keyUnsub();
+        keyUnsub?.();
         const int = _refetchOnInterval.get(keyInput);
         if (int) clearInterval(int);
       });
