@@ -1,1 +1,205 @@
-(function(d,a){typeof exports=="object"&&typeof module<"u"?a(exports,require("nanostores")):typeof define=="function"&&define.amd?define(["exports","nanostores"],a):(d=typeof globalThis<"u"?globalThis:d||self,a(d.nanofetch={},d.nanostores))})(this,function(d,a){"use strict";let R=()=>({events:{},emit(t,...r){let n=this.events[t]||[];for(let s=0,f=n.length;s<f;s++)n[s](...r)},on(t,r){var n;return(n=this.events[t])!=null&&n.push(r)||(this.events[t]=[r]),()=>{var s;this.events[t]=(s=this.events[t])==null?void 0:s.filter(f=>r!==f)}}});const x=({cache:t=new Map,fetcher:r,...n}={})=>{const s=R();let f=!0;N("focus",()=>{f=!0,s.emit(1)}),N("blur",()=>f=!1),N("online",()=>s.emit(2));const i=new Map,h=new Map,S=new Set;let P={};const M=async([e,E],w,c)=>{if(!f)return;const{dedupeTime:v=4e3,fetcher:g}={...c,...P},l=K();t.has(e)||t.set(e,_);const u=o=>{(o!==_||w.get()!==_)&&w.set(o)};b().then(()=>{const o=t.get(e);u(o)}),await b();const m=h.get(e);if(!(m&&m+v>l)&&!S.has(e)){h.set(e,l),S.add(e);try{const o={data:await g(...E),loading:!1};t.set(e,o),u(o),h.set(e,K())}catch(o){w.set({error:o,loading:!1})}finally{S.delete(e)}}};return[(e,{fetcher:E=r,...w}={})=>{if(process.env.NODE_ENV!=="production"&&!E)throw new Error("You need to set up either global fetcher of fetcher in createFetcherStore");const c=a.atom(),v={...n,...w,fetcher:E};let g,l,u,m,o;const F=[];a.onStart(c,()=>{const p=!g;[o,g]=I(e),m=o.listen(D=>{if(D){const[V,L]=D;M([V,L],c,v),l=V,u=L}else l=u=void 0});const O=o.get();O?([l,u]=O,p&&T()):b().then(()=>c.set(_));const{refetchInterval:j=0,refetchOnFocus:z,refetchOnReconnect:U}=v,y=()=>{l&&M([l,u],c,v)};j>0&&i.set(e,setInterval(y,j)),z&&F.push(s.on(1,y)),U&&F.push(s.on(2,y))});const T=()=>{l&&u&&M([l,u],c,v)},q=c.listen;return c.listen=p=>(T(),q(p)),a.onStop(c,()=>{g==null||g(),F.forEach(O=>O()),m();const p=i.get(e);p&&clearInterval(p)}),c},e=>{},e=>{process.env.NODE_ENV!=="test"&&console.warn("You should only use __unsafeOverruleSettings in test environment"),P=e}]},I=t=>{let r=a.atom(null),n=[];const s=()=>{n.some(i=>i===null)?r.set(null):r.set([n.join(""),n])},f=[];for(let i=0;i<t.length;i++){const h=t[i];if(typeof h=="string"){n.push(h);continue}n.push(h.get()),f.push(h.listen(S=>{n[i]=S,s()}))}return s(),[r,()=>f.forEach(i=>i())]},Y=typeof window<"u",N=(t,r)=>{(!Y||process.env.NODE_ENV==="test")&&addEventListener(t,r)},K=()=>new Date().getTime(),b=()=>new Promise(t=>t()),_=Object.freeze({loading:!0});d.nanofetch=x,Object.defineProperties(d,{__esModule:{value:!0},[Symbol.toStringTag]:{value:"Module"}})});
+(function(global, factory) {
+  typeof exports === "object" && typeof module !== "undefined" ? factory(exports, require("nanostores")) : typeof define === "function" && define.amd ? define(["exports", "nanostores"], factory) : (global = typeof globalThis !== "undefined" ? globalThis : global || self, factory(global.nanofetch = {}, global.nanostores));
+})(this, function(exports2, nanostores) {
+  "use strict";
+  let createNanoEvents = () => ({
+    events: {},
+    emit(event, ...args) {
+      let callbacks = this.events[event] || [];
+      for (let i = 0, length = callbacks.length; i < length; i++) {
+        callbacks[i](...args);
+      }
+    },
+    on(event, cb) {
+      var _a;
+      ((_a = this.events[event]) == null ? void 0 : _a.push(cb)) || (this.events[event] = [cb]);
+      return () => {
+        var _a2;
+        this.events[event] = (_a2 = this.events[event]) == null ? void 0 : _a2.filter((i) => cb !== i);
+      };
+    }
+  });
+  const nanofetch = ({
+    cache = /* @__PURE__ */ new Map(),
+    fetcher: globalFetcher,
+    ...globalSettings
+  } = {}) => {
+    const events = createNanoEvents();
+    let focus = true;
+    subscribe("focus", () => {
+      focus = true;
+      events.emit(1);
+    });
+    subscribe("blur", () => focus = false);
+    subscribe("online", () => events.emit(2));
+    const _refetchOnInterval = /* @__PURE__ */ new Map(), _lastFetch = /* @__PURE__ */ new Map(), _runningFetches = /* @__PURE__ */ new Set();
+    let rewrittenSettings = {};
+    const runFetcher = async ([key, keyParts], store, settings) => {
+      if (!focus)
+        return;
+      const { dedupeTime = 4e3, fetcher } = {
+        ...settings,
+        ...rewrittenSettings
+      };
+      const now = getNow();
+      if (!cache.has(key)) {
+        cache.set(key, loading);
+      }
+      const setIfNotMatches = (newVal) => {
+        if (newVal !== loading || store.get() !== loading) {
+          store.set(newVal);
+        }
+      };
+      tick().then(() => {
+        const value = cache.get(key);
+        setIfNotMatches(value);
+      });
+      await tick();
+      const last = _lastFetch.get(key);
+      if (last && last + dedupeTime > now) {
+        return;
+      }
+      if (_runningFetches.has(key)) {
+        return;
+      }
+      _lastFetch.set(key, now);
+      _runningFetches.add(key);
+      try {
+        /* @__PURE__ */ console.log("running fetcher", key);
+        const res = { data: await fetcher(...keyParts), loading: false };
+        cache.set(key, res);
+        /* @__PURE__ */ console.log("setting fetched value", key, res);
+        setIfNotMatches(res);
+        _lastFetch.set(key, getNow());
+      } catch (error) {
+        store.set({ error, loading: false });
+      } finally {
+        _runningFetches.delete(key);
+      }
+    };
+    const createFetcherStore = (keyInput, {
+      fetcher = globalFetcher,
+      ...fetcherSettings
+    } = {}) => {
+      if (process.env.NODE_ENV !== "production" && !fetcher) {
+        throw new Error(
+          "You need to set up either global fetcher of fetcher in createFetcherStore"
+        );
+      }
+      const fetcherStore = nanostores.atom(), settings = { ...globalSettings, ...fetcherSettings, fetcher };
+      let keysInternalUnsub, prevKey, prevKeyParts, keyUnsub, keyStore;
+      const evtUnsubs = [];
+      nanostores.onStart(fetcherStore, () => {
+        const firstRun = !keysInternalUnsub;
+        [keyStore, keysInternalUnsub] = getKeyStore(keyInput);
+        keyUnsub = keyStore.listen((currentKeys) => {
+          if (currentKeys) {
+            const [newKey, keyParts] = currentKeys;
+            runFetcher([newKey, keyParts], fetcherStore, settings);
+            prevKey = newKey;
+            prevKeyParts = keyParts;
+          } else {
+            prevKey = prevKeyParts = void 0;
+          }
+        });
+        const currentKeyValue = keyStore.get();
+        if (currentKeyValue) {
+          [prevKey, prevKeyParts] = currentKeyValue;
+          if (firstRun)
+            handleNewListener();
+        } else {
+          tick().then(() => fetcherStore.set(loading));
+        }
+        const {
+          refetchInterval = 0,
+          refetchOnFocus,
+          refetchOnReconnect
+        } = settings;
+        const runRefetcher = () => {
+          if (prevKey)
+            runFetcher([prevKey, prevKeyParts], fetcherStore, settings);
+        };
+        if (refetchInterval > 0) {
+          _refetchOnInterval.set(
+            keyInput,
+            setInterval(runRefetcher, refetchInterval)
+          );
+        }
+        if (refetchOnFocus)
+          evtUnsubs.push(events.on(1, runRefetcher));
+        if (refetchOnReconnect)
+          evtUnsubs.push(events.on(2, runRefetcher));
+      });
+      const handleNewListener = () => {
+        if (prevKey && prevKeyParts)
+          runFetcher([prevKey, prevKeyParts], fetcherStore, settings);
+      };
+      const originListen = fetcherStore.listen;
+      fetcherStore.listen = (listener) => {
+        handleNewListener();
+        return originListen(listener);
+      };
+      nanostores.onStop(fetcherStore, () => {
+        keysInternalUnsub == null ? void 0 : keysInternalUnsub();
+        evtUnsubs.forEach((fn) => fn());
+        keyUnsub();
+        const int = _refetchOnInterval.get(keyInput);
+        if (int)
+          clearInterval(int);
+      });
+      return fetcherStore;
+    }, createMutatorStore = (mutator) => {
+    };
+    const __unsafeOverruleSettings = (data) => {
+      if (process.env.NODE_ENV !== "test") {
+        console.warn(
+          `You should only use __unsafeOverruleSettings in test environment`
+        );
+      }
+      rewrittenSettings = data;
+    };
+    return [
+      createFetcherStore,
+      createMutatorStore,
+      __unsafeOverruleSettings
+    ];
+  };
+  const getKeyStore = (keys) => {
+    let keyStore = nanostores.atom(null), keyParts = [];
+    const setKeyStoreValue = () => {
+      if (keyParts.some((v) => v === null)) {
+        keyStore.set(null);
+      } else {
+        keyStore.set([keyParts.join(""), keyParts]);
+      }
+    };
+    const unsubs = [];
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      if (typeof key === "string") {
+        keyParts.push(key);
+        continue;
+      }
+      keyParts.push(key.get());
+      unsubs.push(
+        key.listen((newValue) => {
+          keyParts[i] = newValue;
+          setKeyStoreValue();
+        })
+      );
+    }
+    setKeyStoreValue();
+    return [keyStore, () => unsubs.forEach((fn) => fn())];
+  };
+  const isServer = typeof window !== "undefined";
+  const subscribe = (name, fn) => {
+    if (!isServer || process.env.NODE_ENV === "test") {
+      addEventListener(name, fn);
+    }
+  };
+  const getNow = () => new Date().getTime();
+  const tick = () => new Promise((r) => r());
+  const loading = Object.freeze({ loading: true });
+  exports2.nanofetch = nanofetch;
+  Object.defineProperties(exports2, { __esModule: { value: true }, [Symbol.toStringTag]: { value: "Module" } });
+});

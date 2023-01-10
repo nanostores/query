@@ -10,6 +10,7 @@ export default defineConfig({
     pure: ["console.log"],
   },
   build: {
+    minify: false,
     lib: {
       entry: resolve(__dirname, "lib/main.ts"),
       name: "nanofetch",
