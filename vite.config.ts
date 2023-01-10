@@ -6,6 +6,9 @@ export default defineConfig({
   test: {
     globals: true,
   },
+  esbuild: {
+    pure: ["console.log"],
+  },
   build: {
     lib: {
       entry: resolve(__dirname, "lib/main.ts"),

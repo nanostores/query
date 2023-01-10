@@ -1,107 +1,132 @@
-import { atom as V, onStart as D, onStop as U } from "nanostores";
-const x = ({
-  cache: r = /* @__PURE__ */ new Map(),
-  fetcher: d,
-  ...o
+import { atom as j, onStart as Y, onStop as x } from "nanostores";
+let z = () => ({
+  events: {},
+  emit(t, ...o) {
+    let n = this.events[t] || [];
+    for (let s = 0, l = n.length; s < l; s++)
+      n[s](...o);
+  },
+  on(t, o) {
+    var n;
+    return (n = this.events[t]) != null && n.push(o) || (this.events[t] = [o]), () => {
+      var s;
+      this.events[t] = (s = this.events[t]) == null ? void 0 : s.filter((l) => o !== l);
+    };
+  }
+});
+const H = ({
+  cache: t = /* @__PURE__ */ new Map(),
+  fetcher: o,
+  ...n
 } = {}) => {
-  const g = /* @__PURE__ */ new Set(), S = /* @__PURE__ */ new Set(), n = /* @__PURE__ */ new Map(), c = /* @__PURE__ */ new Map(), p = /* @__PURE__ */ new Set();
-  let F = {};
-  const E = async ([e, l], a, t) => {
-    const {
-      dedupeTime: i = 4e3,
-      fetcher: w,
-      refetchOnFocus: s,
-      refetchOnReconnect: u,
-      refetchInterval: _
-    } = { ...t, ...F }, f = R();
-    s && g.add(e), u && S.add(e), _ && !n.has(e) && n.set(
-      e,
-      setInterval(
-        () => E([e, l], a, t),
-        _
-      )
-    );
-    const v = c.get(e);
-    if (!(v && v + i > f) && !p.has(e)) {
-      c.set(e, f), p.add(e);
+  const s = z();
+  let l = !0;
+  F("focus", () => {
+    l = !0, s.emit(1);
+  }), F("blur", () => l = !1), F("online", () => s.emit(2));
+  const i = /* @__PURE__ */ new Map(), u = /* @__PURE__ */ new Map(), d = /* @__PURE__ */ new Set();
+  let M = {};
+  const E = async ([e, w], p, c) => {
+    if (!l)
+      return;
+    const { dedupeTime: g = 4e3, fetcher: h } = {
+      ...c,
+      ...M
+    }, a = R();
+    t.has(e) || t.set(e, _);
+    const f = (r) => {
+      (r !== _ || p.get() !== _) && p.set(r);
+    };
+    b().then(() => {
+      const r = t.get(e);
+      f(r);
+    }), await b();
+    const S = u.get(e);
+    if (!(S && S + g > a) && !d.has(e)) {
+      u.set(e, a), d.add(e);
       try {
-        const h = { data: await w(...l), loading: !1 };
-        r.set(e, h), a.set(h), c.set(e, R());
-      } catch (h) {
-        a.set({ error: h, loading: !1 });
+        const r = { data: await h(...w), loading: !1 };
+        t.set(e, r), f(r), u.set(e, R());
+      } catch (r) {
+        p.set({ error: r, loading: !1 });
       } finally {
-        p.delete(e);
+        d.delete(e);
       }
     }
-  }, m = (e) => {
-    !e || (g.delete(e), S.delete(e), clearInterval(n.get(e)));
-  }, K = ([e, l], a, t) => {
-    if (!r.has(e)) {
-      const i = { loading: !0 };
-      r.set(e, i);
-    }
-    T(() => a.set(r.get(e))), E([e, l], a, t);
   };
   return [
     (e, {
-      fetcher: l = d,
-      ...a
+      fetcher: w = o,
+      ...p
     } = {}) => {
-      if (process.env.NODE_ENV !== "production" && !l)
+      if (process.env.NODE_ENV !== "production" && !w)
         throw new Error(
           "You need to set up either global fetcher of fetcher in createFetcherStore"
         );
-      const t = V({ loading: !0 }), i = { ...o, ...a, fetcher: l };
-      let w, s, u, _, f;
-      D(t, () => {
-        const O = !w;
-        [f, w] = L(e), _ = f.listen((I) => {
-          if (m(s), I) {
-            const [M, b] = I;
-            m(s), K([M, b], t, i), s = M, u = b;
-          }
+      const c = j(), g = { ...n, ...p, fetcher: w };
+      let h, a, f, S, r;
+      const N = [];
+      Y(c, () => {
+        const v = !h;
+        [r, h] = U(e), S = r.listen((P) => {
+          if (P) {
+            const [V, L] = P;
+            E([V, L], c, g), a = V, f = L;
+          } else
+            a = f = void 0;
         });
-        const N = f.get();
-        N ? ([s, u] = N, O && v()) : T(() => t.set({ loading: !0 }));
+        const m = r.get();
+        m ? ([a, f] = m, v && K()) : b().then(() => c.set(_));
+        const {
+          refetchInterval: D = 0,
+          refetchOnFocus: I,
+          refetchOnReconnect: T
+        } = g, O = () => {
+          a && E([a, f], c, g);
+        };
+        D > 0 && i.set(
+          e,
+          setInterval(O, D)
+        ), I && N.push(s.on(1, O)), T && N.push(s.on(2, O));
       });
-      const v = () => {
-        s && u && K(
-          [s, u],
-          t,
-          i
-        );
-      }, h = t.listen;
-      return t.listen = (O) => (v(), h(O)), U(t, () => {
-        w(), _(), m(s);
-      }), t;
+      const K = () => {
+        a && f && E([a, f], c, g);
+      }, y = c.listen;
+      return c.listen = (v) => (K(), y(v)), x(c, () => {
+        h == null || h(), N.forEach((m) => m()), S();
+        const v = i.get(e);
+        v && clearInterval(v);
+      }), c;
     },
     (e) => {
     },
     (e) => {
       process.env.NODE_ENV !== "test" && console.warn(
         "You should only use __unsafeOverruleSettings in test environment"
-      ), F = e;
+      ), M = e;
     }
   ];
-}, L = (r) => {
-  let d = V(null), o = [];
-  const g = () => {
-    o.some((n) => n === null) ? d.set(null) : d.set([o.join(""), o]);
-  }, S = [];
-  for (let n = 0; n < r.length; n++) {
-    const c = r[n];
-    if (typeof c == "string") {
-      o.push(c);
+}, U = (t) => {
+  let o = j(null), n = [];
+  const s = () => {
+    n.some((i) => i === null) ? o.set(null) : o.set([n.join(""), n]);
+  }, l = [];
+  for (let i = 0; i < t.length; i++) {
+    const u = t[i];
+    if (typeof u == "string") {
+      n.push(u);
       continue;
     }
-    o.push(c.get()), S.push(
-      c.listen((p) => {
-        o[n] = p, g();
+    n.push(u.get()), l.push(
+      u.listen((d) => {
+        n[i] = d, s();
       })
     );
   }
-  return g(), [d, () => S.forEach((n) => n())];
-}, R = () => new Date().getTime(), T = (r) => setTimeout(r);
+  return s(), [o, () => l.forEach((i) => i())];
+}, q = typeof window < "u", F = (t, o) => {
+  (!q || process.env.NODE_ENV === "test") && addEventListener(t, o);
+}, R = () => new Date().getTime(), b = () => new Promise((t) => t()), _ = Object.freeze({ loading: !0 });
 export {
-  x as nanofetch
+  H as nanofetch
 };

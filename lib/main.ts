@@ -1,5 +1,7 @@
 import { atom, onStart, onStop, ReadableAtom, WritableAtom } from "nanostores";
+import { createNanoEvents } from "nanoevents";
 
+type Fn = () => void;
 type MaybePromise<T> = T | Promise<T>;
 
 export type KeyInput = Array<string | ReadableAtom<string | null>>;
@@ -19,7 +21,7 @@ type CommonSettings<T = unknown> = {
 } & RefetchSettings;
 
 type NanofetchArgs = {
-  cache?: Map<string, any>;
+  cache?: Map<Key, any>;
 } & CommonSettings;
 
 export type FetcherValue<T = any, E = Error> = {
@@ -39,9 +41,17 @@ export const nanofetch = ({
   fetcher: globalFetcher,
   ...globalSettings
 }: NanofetchArgs = {}) => {
-  const _refetchOnFocus = new Set<Key>(),
-    _refetchOnReconnect = new Set<Key>(),
-    _refetchOnInterval = new Map<Key, number>(),
+  const events = createNanoEvents<Events>();
+  let focus = true;
+  subscribe("focus", () => {
+    focus = true;
+    events.emit(1);
+  });
+  subscribe("blur", () => (focus = false));
+
+  subscribe("online", () => events.emit(2));
+
+  const _refetchOnInterval = new Map<KeyInput, number>(),
     _lastFetch = new Map<Key, number>(),
     _runningFetches = new Set<Key>();
 
@@ -53,34 +63,42 @@ export const nanofetch = ({
     store: FetcherStore,
     settings: CommonSettings
   ) => {
-    const {
-      dedupeTime = 4000,
-      fetcher,
-      refetchOnFocus,
-      refetchOnReconnect,
-      refetchInterval,
-    } = { ...settings, ...rewrittenSettings };
+    if (!focus) return;
+
+    const { dedupeTime = 4000, fetcher } = {
+      ...settings,
+      ...rewrittenSettings,
+    };
 
     const now = getNow();
 
-    if (refetchOnFocus) _refetchOnFocus.add(key);
-    if (refetchOnReconnect) _refetchOnReconnect.add(key);
-    if (refetchInterval && !_refetchOnInterval.has(key)) {
-      _refetchOnInterval.set(
-        key,
-        setInterval(
-          () => runFetcher([key, keyParts], store, settings),
-          refetchInterval
-        ) as unknown as number
-      );
+    if (!cache.has(key)) {
+      cache.set(key, loading);
     }
+
+    const setIfNotMatches = (newVal: any) => {
+      if (newVal !== loading || store.get() !== loading) {
+        store.set(newVal);
+      } else {
+        console.log("omiting setting value");
+      }
+    };
+
+    // Calling it after tick, because otherwise it won't be propagated to .listen
+    tick().then(() => {
+      const value = cache.get(key);
+      setIfNotMatches(value);
+    });
+    await tick();
 
     const last = _lastFetch.get(key);
     if (last && last + dedupeTime > now) {
       // Deduping the request: it's been sent not so long ago
+      console.log("deduped", key);
       return;
     }
     if (_runningFetches.has(key)) {
+      console.log("already runs", key);
       // Do not run the same fetcher if previous one hasn't finished yet
       return;
     }
@@ -89,9 +107,11 @@ export const nanofetch = ({
     _runningFetches.add(key);
 
     try {
+      console.log("running fetcher", key);
       const res = { data: await fetcher!(...keyParts), loading: false };
       cache.set(key, res);
-      store.set(res);
+      console.log("setting fetched value", key, res);
+      setIfNotMatches(res);
       _lastFetch.set(key, getNow());
     } catch (error: any) {
       store.set({ error, loading: false });
@@ -100,30 +120,8 @@ export const nanofetch = ({
     }
   };
 
-  const handleRequestUnmount = (key?: Key) => {
-    if (!key) return;
-
-    _refetchOnFocus.delete(key);
-    _refetchOnReconnect.delete(key);
-    clearInterval(_refetchOnInterval.get(key));
-  };
-  const handleStoreKeysChange = (
-    [key, keyParts]: [Key, KeyParts],
-    store: FetcherStore,
-    settings: CommonSettings
-  ) => {
-    if (!cache.has(key)) {
-      const loadingState = { loading: true };
-      cache.set(key, loadingState);
-    }
-    // Waiting for a tick to happen, otherwise value isn't propagated to `.listen`
-    callAfterTick(() => store.set(cache.get(key)));
-
-    runFetcher([key, keyParts], store, settings);
-  };
-
   const createFetcherStore = <T = unknown, E = any>(
-      keys: KeyInput,
+      keyInput: KeyInput,
       {
         fetcher = globalFetcher as Fetcher<T>,
         ...fetcherSettings
@@ -135,27 +133,28 @@ export const nanofetch = ({
         );
       }
 
-      const fetcherStore: FetcherStore<T> = atom({ loading: true }),
+      const fetcherStore = atom() as unknown as FetcherStore<T>,
         settings = { ...globalSettings, ...fetcherSettings, fetcher };
 
-      let keysInternalUnsub: () => void,
+      let keysInternalUnsub: Fn,
         prevKey: Key | undefined,
         prevKeyParts: KeyParts | undefined,
-        keyUnsub: () => void,
+        keyUnsub: Fn,
         keyStore: ReturnType<typeof getKeyStore>[0];
+
+      const evtUnsubs: Fn[] = [];
 
       onStart(fetcherStore, () => {
         const firstRun = !keysInternalUnsub;
-        [keyStore, keysInternalUnsub] = getKeyStore(keys);
+        [keyStore, keysInternalUnsub] = getKeyStore(keyInput);
         keyUnsub = keyStore.listen((currentKeys) => {
-          handleRequestUnmount(prevKey);
-
           if (currentKeys) {
             const [newKey, keyParts] = currentKeys;
-            handleRequestUnmount(prevKey);
-            handleStoreKeysChange([newKey, keyParts], fetcherStore, settings);
+            runFetcher([newKey, keyParts], fetcherStore, settings);
             prevKey = newKey;
             prevKeyParts = keyParts;
+          } else {
+            prevKey = prevKeyParts = void 0;
           }
         });
 
@@ -164,17 +163,34 @@ export const nanofetch = ({
           [prevKey, prevKeyParts] = currentKeyValue;
           if (firstRun) handleNewListener();
         } else {
-          callAfterTick(() => fetcherStore.set({ loading: true }));
+          // Initial value when one of the keys is null
+          tick().then(() => fetcherStore.set(loading));
         }
+
+        const {
+          refetchInterval = 0,
+          refetchOnFocus,
+          refetchOnReconnect,
+        } = settings;
+        const runRefetcher = () => {
+          console.log("running refetcher", prevKey);
+          if (prevKey)
+            runFetcher([prevKey, prevKeyParts!], fetcherStore, settings);
+        };
+
+        if (refetchInterval > 0) {
+          _refetchOnInterval.set(
+            keyInput,
+            setInterval(runRefetcher, refetchInterval) as unknown as number
+          );
+        }
+        if (refetchOnFocus) evtUnsubs.push(events.on(1, runRefetcher));
+        if (refetchOnReconnect) evtUnsubs.push(events.on(2, runRefetcher));
       });
 
       const handleNewListener = () => {
         if (prevKey && prevKeyParts)
-          handleStoreKeysChange(
-            [prevKey, prevKeyParts],
-            fetcherStore,
-            settings
-          );
+          runFetcher([prevKey, prevKeyParts], fetcherStore, settings);
       };
 
       const originListen = fetcherStore.listen;
@@ -184,9 +200,11 @@ export const nanofetch = ({
       };
 
       onStop(fetcherStore, () => {
-        keysInternalUnsub();
+        keysInternalUnsub?.();
+        evtUnsubs.forEach((fn) => fn());
         keyUnsub();
-        handleRequestUnmount(prevKey);
+        const int = _refetchOnInterval.get(keyInput);
+        if (int) clearInterval(int);
       });
 
       return fetcherStore as FetcherStore<T, E>;
@@ -223,7 +241,7 @@ const getKeyStore = (keys: KeyInput) => {
     }
   };
 
-  const unsubs: Array<() => void> = [];
+  const unsubs: Array<Fn> = [];
 
   for (let i = 0; i < keys.length; i++) {
     const key = keys[i];
@@ -245,6 +263,22 @@ const getKeyStore = (keys: KeyInput) => {
   return [keyStore, () => unsubs.forEach((fn) => fn())] as const;
 };
 
+type Events = {
+  // Focus
+  1: Fn;
+  // Reconnect
+  2: Fn;
+};
+
+const isServer = typeof window !== "undefined";
+const subscribe = (name: string, fn: Fn) => {
+  if (!isServer || process.env.NODE_ENV === "test") {
+    addEventListener(name, fn);
+  }
+};
+
 const getNow = () => new Date().getTime();
 
-const callAfterTick = (fn: () => void) => setTimeout(fn);
+const tick = () => new Promise<void>((r) => r());
+
+const loading = Object.freeze({ loading: true });
