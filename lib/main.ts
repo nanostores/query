@@ -1,15 +1,22 @@
-import { atom, onStart, onStop, ReadableAtom, WritableAtom } from "nanostores";
+import {
+  atom,
+  map,
+  MapStore,
+  onStart,
+  onStop,
+  ReadableAtom,
+  WritableAtom,
+} from "nanostores";
 import { createNanoEvents } from "nanoevents";
 
 type Fn = () => void;
-type MaybePromise<T> = T | Promise<T>;
 
 export type KeyInput = Array<string | ReadableAtom<string | null>>;
 
 type Key = string;
 type KeyParts = Key[];
 
-export type Fetcher<T> = (...args: KeyParts) => MaybePromise<T>;
+export type Fetcher<T> = (...args: KeyParts) => Promise<T>;
 type RefetchSettings = {
   dedupeTime?: number;
   refetchOnFocus?: boolean;
@@ -36,6 +43,18 @@ export type FetcherStoreCreator<T = any, E = Error> = (
   settings?: CommonSettings<T>
 ) => FetcherStore<T, E>;
 
+export type AutoMutator<T = unknown> = (data: T) => Promise<unknown>;
+export type ManualMutator<T = unknown> = (args: {
+  data: T;
+  invalidate: (keys: Key[]) => void;
+  getMutator: (key: Key) => [(newValue: unknown) => void, unknown?];
+}) => Promise<unknown>;
+export type MutatorStore<T = unknown, E = Error> = MapStore<{
+  mutate: (data: T) => Promise<void>;
+  loading?: boolean;
+  error?: E;
+}>;
+
 export const nanofetch = ({
   cache = new Map(),
   fetcher: globalFetcher,
@@ -45,11 +64,10 @@ export const nanofetch = ({
   let focus = true;
   subscribe("focus", () => {
     focus = true;
-    events.emit(1);
+    events.emit(FOCUS);
   });
   subscribe("blur", () => (focus = false));
-
-  subscribe("online", () => events.emit(2));
+  subscribe("online", () => events.emit(RECONNECT));
 
   const _refetchOnInterval = new Map<KeyInput, number>(),
     _lastFetch = new Map<Key, number>(),
@@ -61,7 +79,8 @@ export const nanofetch = ({
   const runFetcher = async (
     [key, keyParts]: [Key, KeyParts],
     store: FetcherStore,
-    settings: CommonSettings
+    settings: CommonSettings,
+    force?: true
   ) => {
     if (!focus) return;
 
@@ -72,10 +91,6 @@ export const nanofetch = ({
 
     const now = getNow();
 
-    if (!cache.has(key)) {
-      cache.set(key, loading);
-    }
-
     const setIfNotMatches = (newVal: any) => {
       if (newVal !== loading || store.get() !== loading) {
         store.set(newVal);
@@ -84,18 +99,24 @@ export const nanofetch = ({
       }
     };
 
-    // Calling it after tick, because otherwise it won't be propagated to .listen
-    tick().then(() => {
-      const value = cache.get(key);
-      setIfNotMatches(value);
-    });
-    await tick();
+    if (!force) {
+      if (!cache.has(key)) {
+        cache.set(key, loading);
+      }
 
-    const last = _lastFetch.get(key);
-    if (last && last + dedupeTime > now) {
-      // Deduping the request: it's been sent not so long ago
-      console.log("deduped", key);
-      return;
+      // Calling it after tick, because otherwise it won't be propagated to .listen
+      tick().then(() => {
+        const value = cache.get(key);
+        setIfNotMatches(value);
+      });
+      await tick();
+
+      const last = _lastFetch.get(key);
+      if (last && last + dedupeTime > now) {
+        // Deduping the request: it's been sent not so long ago
+        console.log("deduped", key);
+        return;
+      }
     }
     if (_runningFetches.has(key)) {
       console.log("already runs", key);
@@ -121,99 +142,188 @@ export const nanofetch = ({
   };
 
   const createFetcherStore = <T = unknown, E = any>(
-      keyInput: KeyInput,
-      {
-        fetcher = globalFetcher as Fetcher<T>,
-        ...fetcherSettings
-      }: CommonSettings<T> = {}
-    ): FetcherStore<T, E> => {
-      if (process.env.NODE_ENV !== "production" && !fetcher) {
-        throw new Error(
-          "You need to set up either global fetcher of fetcher in createFetcherStore"
-        );
+    keyInput: KeyInput,
+    {
+      fetcher = globalFetcher as Fetcher<T>,
+      ...fetcherSettings
+    }: CommonSettings<T> = {}
+  ): FetcherStore<T, E> => {
+    if (process.env.NODE_ENV !== "production" && !fetcher) {
+      throw new Error(
+        "You need to set up either global fetcher of fetcher in createFetcherStore"
+      );
+    }
+
+    const fetcherStore: FetcherStore<T> = atom({
+        loading: true,
+      }),
+      settings = { ...globalSettings, ...fetcherSettings, fetcher };
+
+    let keysInternalUnsub: Fn,
+      prevKey: Key | undefined,
+      prevKeyParts: KeyParts | undefined,
+      keyUnsub: Fn,
+      keyStore: ReturnType<typeof getKeyStore>[0];
+
+    const evtUnsubs: Fn[] = [];
+
+    onStart(fetcherStore, () => {
+      const firstRun = !keysInternalUnsub;
+      [keyStore, keysInternalUnsub] = getKeyStore(keyInput);
+      keyUnsub = keyStore.listen((currentKeys) => {
+        if (currentKeys) {
+          const [newKey, keyParts] = currentKeys;
+          runFetcher([newKey, keyParts], fetcherStore, settings);
+          prevKey = newKey;
+          prevKeyParts = keyParts;
+        } else {
+          prevKey = prevKeyParts = void 0;
+        }
+      });
+
+      const currentKeyValue = keyStore.get();
+      if (currentKeyValue) {
+        [prevKey, prevKeyParts] = currentKeyValue;
+        if (firstRun) handleNewListener();
+      } else {
+        // Initial value when one of the keys is null
+        tick().then(() => fetcherStore.set(loading));
       }
 
-      const fetcherStore: FetcherStore<T> = atom({
-          loading: true,
-        }),
-        settings = { ...globalSettings, ...fetcherSettings, fetcher };
-
-      let keysInternalUnsub: Fn,
-        prevKey: Key | undefined,
-        prevKeyParts: KeyParts | undefined,
-        keyUnsub: Fn,
-        keyStore: ReturnType<typeof getKeyStore>[0];
-
-      const evtUnsubs: Fn[] = [];
-
-      onStart(fetcherStore, () => {
-        const firstRun = !keysInternalUnsub;
-        [keyStore, keysInternalUnsub] = getKeyStore(keyInput);
-        keyUnsub = keyStore.listen((currentKeys) => {
-          if (currentKeys) {
-            const [newKey, keyParts] = currentKeys;
-            runFetcher([newKey, keyParts], fetcherStore, settings);
-            prevKey = newKey;
-            prevKeyParts = keyParts;
-          } else {
-            prevKey = prevKeyParts = void 0;
-          }
-        });
-
-        const currentKeyValue = keyStore.get();
-        if (currentKeyValue) {
-          [prevKey, prevKeyParts] = currentKeyValue;
-          if (firstRun) handleNewListener();
-        } else {
-          // Initial value when one of the keys is null
-          tick().then(() => fetcherStore.set(loading));
-        }
-
-        const {
-          refetchInterval = 0,
-          refetchOnFocus,
-          refetchOnReconnect,
-        } = settings;
-        const runRefetcher = () => {
-          console.log("running refetcher", prevKey);
-          if (prevKey)
-            runFetcher([prevKey, prevKeyParts!], fetcherStore, settings);
-        };
-
-        if (refetchInterval > 0) {
-          _refetchOnInterval.set(
-            keyInput,
-            setInterval(runRefetcher, refetchInterval) as unknown as number
-          );
-        }
-        if (refetchOnFocus) evtUnsubs.push(events.on(1, runRefetcher));
-        if (refetchOnReconnect) evtUnsubs.push(events.on(2, runRefetcher));
-      });
-
-      const handleNewListener = () => {
-        if (prevKey && prevKeyParts)
-          runFetcher([prevKey, prevKeyParts], fetcherStore, settings);
+      const {
+        refetchInterval = 0,
+        refetchOnFocus,
+        refetchOnReconnect,
+      } = settings;
+      const runRefetcher = () => {
+        console.log("running refetcher", prevKey);
+        if (prevKey)
+          runFetcher([prevKey, prevKeyParts!], fetcherStore, settings);
       };
 
-      const originListen = fetcherStore.listen;
-      fetcherStore.listen = (listener) => {
-        handleNewListener();
-        return originListen(listener);
-      };
+      if (refetchInterval > 0) {
+        _refetchOnInterval.set(
+          keyInput,
+          setInterval(runRefetcher, refetchInterval) as unknown as number
+        );
+      }
+      if (refetchOnFocus) evtUnsubs.push(events.on(FOCUS, runRefetcher));
+      if (refetchOnReconnect)
+        evtUnsubs.push(events.on(RECONNECT, runRefetcher));
+    });
 
-      onStop(fetcherStore, () => {
-        keysInternalUnsub?.();
-        evtUnsubs.forEach((fn) => fn());
-        keyUnsub?.();
-        const int = _refetchOnInterval.get(keyInput);
-        if (int) clearInterval(int);
-      });
-
-      return fetcherStore as FetcherStore<T, E>;
-    },
-    createMutatorStore = (mutator: any) => {
-      // TODO
+    const handleNewListener = () => {
+      if (prevKey && prevKeyParts)
+        runFetcher([prevKey, prevKeyParts], fetcherStore, settings);
     };
+
+    const originListen = fetcherStore.listen;
+    fetcherStore.listen = (listener) => {
+      handleNewListener();
+      return originListen(listener);
+    };
+
+    const mutateUnsub = events.on(MUTATE_CACHE, (key, data) => {
+      if (key === prevKey) {
+        const curr = cache.get(key);
+        const newState = { ...curr, data };
+        cache.set(key, newState);
+        fetcherStore.set(newState);
+      }
+    });
+    const invalidateUnsub = events.on(INVALIDATE_KEYS, (keys) => {
+      if (prevKey && keys.includes(prevKey)) {
+        runFetcher([prevKey, prevKeyParts!], fetcherStore, settings, true);
+      }
+    });
+
+    onStop(fetcherStore, () => {
+      mutateUnsub();
+      invalidateUnsub();
+      keysInternalUnsub?.();
+      evtUnsubs.forEach((fn) => fn());
+      keyUnsub?.();
+      const int = _refetchOnInterval.get(keyInput);
+      if (int) clearInterval(int);
+    });
+
+    return fetcherStore as FetcherStore<T, E>;
+  };
+
+  const invalidateKeys = (keys: Key[]) => {
+    events.emit(INVALIDATE_KEYS, keys);
+  };
+  const mutateCache = (key: Key, data: unknown) => {
+    events.emit(MUTATE_CACHE, key, data);
+  };
+
+  function createMutatorStore<T = unknown, E = Error>(
+    keysToInvalidate: Key[],
+    mutator: AutoMutator<T>
+  ): MutatorStore<T, E>;
+  function createMutatorStore<T = unknown, E = Error>(
+    mutator: ManualMutator<T>
+  ): MutatorStore<T, E>;
+  function createMutatorStore<T = unknown, E = Error>(
+    ...args: [Key[], AutoMutator<T>] | [ManualMutator<T>]
+  ): MutatorStore<T, E> {
+    const wrapMutator =
+      (innerFn: (data: T) => Promise<unknown>) => async (data: T) => {
+        try {
+          store.setKey("error", void 0);
+          store.setKey("loading", true);
+          if (rewrittenSettings.fetcher) {
+            await rewrittenSettings.fetcher(data as unknown as any);
+          } else {
+            await innerFn(data);
+          }
+        } catch (error) {
+          store.setKey("error", error as E);
+        } finally {
+          store.setKey("loading", false);
+        }
+      };
+
+    let mutate: (data: T) => Promise<void>;
+
+    if (Array.isArray(args[0])) {
+      const [keys, autoMutator] = args;
+      mutate = wrapMutator(async (data) => {
+        await autoMutator!(data);
+        invalidateKeys(keys);
+      });
+    } else {
+      const [manualMutator] = args;
+      mutate = wrapMutator(async (data) => {
+        const keysToInvalidate: Key[] = [];
+        try {
+          await manualMutator({
+            data,
+            invalidate: (keys: Key[]) => {
+              // We automatically postpone key invalidation up until mutator is run
+              keysToInvalidate.push(...keys);
+            },
+            getMutator: (key: Key) => [
+              (newVal: unknown) => {
+                mutateCache(key, newVal);
+                // We always add this key for invalidation after everything runs
+                keysToInvalidate.push(key);
+              },
+              cache.get(key)?.data,
+            ],
+          });
+        } finally {
+          // We do not catch it because it's caught in `wrapMutator`.
+          // But we still invalidate all keys that were invalidated during running manual
+          // mutator.
+          invalidateKeys(keysToInvalidate);
+        }
+      });
+    }
+
+    const store: MutatorStore<T, E> = map({ mutate, loading: false });
+    return store;
+  }
 
   const __unsafeOverruleSettings = (data: CommonSettings) => {
     if (process.env.NODE_ENV !== "test") {
@@ -265,11 +375,16 @@ const getKeyStore = (keys: KeyInput) => {
   return [keyStore, () => unsubs.forEach((fn) => fn())] as const;
 };
 
+const FOCUS = 1,
+  RECONNECT = 2,
+  INVALIDATE_KEYS = 3,
+  MUTATE_CACHE = 4;
+
 type Events = {
-  // Focus
-  1: Fn;
-  // Reconnect
-  2: Fn;
+  [FOCUS]: Fn;
+  [RECONNECT]: Fn;
+  [INVALIDATE_KEYS]: (keys: Key[]) => void;
+  [MUTATE_CACHE]: (key: Key, value: unknown) => void;
 };
 
 const isServer = typeof window !== "undefined";

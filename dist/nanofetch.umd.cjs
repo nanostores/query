@@ -28,13 +28,13 @@
     let focus = true;
     subscribe("focus", () => {
       focus = true;
-      events.emit(1);
+      events.emit(FOCUS);
     });
     subscribe("blur", () => focus = false);
-    subscribe("online", () => events.emit(2));
+    subscribe("online", () => events.emit(RECONNECT));
     const _refetchOnInterval = /* @__PURE__ */ new Map(), _lastFetch = /* @__PURE__ */ new Map(), _runningFetches = /* @__PURE__ */ new Set();
     let rewrittenSettings = {};
-    const runFetcher = async ([key, keyParts], store, settings) => {
+    const runFetcher = async ([key, keyParts], store, settings, force) => {
       if (!focus)
         return;
       const { dedupeTime = 4e3, fetcher } = {
@@ -42,22 +42,24 @@
         ...rewrittenSettings
       };
       const now = getNow();
-      if (!cache.has(key)) {
-        cache.set(key, loading);
-      }
       const setIfNotMatches = (newVal) => {
         if (newVal !== loading || store.get() !== loading) {
           store.set(newVal);
         }
       };
-      tick().then(() => {
-        const value = cache.get(key);
-        setIfNotMatches(value);
-      });
-      await tick();
-      const last = _lastFetch.get(key);
-      if (last && last + dedupeTime > now) {
-        return;
+      if (!force) {
+        if (!cache.has(key)) {
+          cache.set(key, loading);
+        }
+        tick().then(() => {
+          const value = cache.get(key);
+          setIfNotMatches(value);
+        });
+        await tick();
+        const last = _lastFetch.get(key);
+        if (last && last + dedupeTime > now) {
+          return;
+        }
       }
       if (_runningFetches.has(key)) {
         return;
@@ -65,10 +67,8 @@
       _lastFetch.set(key, now);
       _runningFetches.add(key);
       try {
-        /* @__PURE__ */ console.log("running fetcher", key);
         const res = { data: await fetcher(...keyParts), loading: false };
         cache.set(key, res);
-        /* @__PURE__ */ console.log("setting fetched value", key, res);
         setIfNotMatches(res);
         _lastFetch.set(key, getNow());
       } catch (error) {
@@ -128,9 +128,9 @@
           );
         }
         if (refetchOnFocus)
-          evtUnsubs.push(events.on(1, runRefetcher));
+          evtUnsubs.push(events.on(FOCUS, runRefetcher));
         if (refetchOnReconnect)
-          evtUnsubs.push(events.on(2, runRefetcher));
+          evtUnsubs.push(events.on(RECONNECT, runRefetcher));
       });
       const handleNewListener = () => {
         if (prevKey && prevKeyParts)
@@ -141,7 +141,22 @@
         handleNewListener();
         return originListen(listener);
       };
+      const mutateUnsub = events.on(MUTATE_CACHE, (key, data) => {
+        if (key === prevKey) {
+          const curr = cache.get(key);
+          const newState = { ...curr, data };
+          cache.set(key, newState);
+          fetcherStore.set(newState);
+        }
+      });
+      const invalidateUnsub = events.on(INVALIDATE_KEYS, (keys) => {
+        if (prevKey && keys.includes(prevKey)) {
+          runFetcher([prevKey, prevKeyParts], fetcherStore, settings, true);
+        }
+      });
       nanostores.onStop(fetcherStore, () => {
+        mutateUnsub();
+        invalidateUnsub();
         keysInternalUnsub == null ? void 0 : keysInternalUnsub();
         evtUnsubs.forEach((fn) => fn());
         keyUnsub == null ? void 0 : keyUnsub();
@@ -150,8 +165,65 @@
           clearInterval(int);
       });
       return fetcherStore;
-    }, createMutatorStore = (mutator) => {
     };
+    const invalidateKeys = (keys) => {
+      events.emit(INVALIDATE_KEYS, keys);
+    };
+    const mutateCache = (key, data) => {
+      events.emit(MUTATE_CACHE, key, data);
+    };
+    function createMutatorStore(...args) {
+      const wrapMutator = (innerFn) => async (data) => {
+        try {
+          store.setKey("error", void 0);
+          store.setKey("loading", true);
+          if (rewrittenSettings.fetcher) {
+            await rewrittenSettings.fetcher(data);
+          } else {
+            await innerFn(data);
+          }
+        } catch (error) {
+          store.setKey("error", error);
+        } finally {
+          store.setKey("loading", false);
+        }
+      };
+      let mutate;
+      if (Array.isArray(args[0])) {
+        const [keys, autoMutator] = args;
+        mutate = wrapMutator(async (data) => {
+          await autoMutator(data);
+          invalidateKeys(keys);
+        });
+      } else {
+        const [manualMutator] = args;
+        mutate = wrapMutator(async (data) => {
+          const keysToInvalidate = [];
+          try {
+            await manualMutator({
+              data,
+              invalidate: (keys) => {
+                keysToInvalidate.push(...keys);
+              },
+              getMutator: (key) => {
+                var _a;
+                return [
+                  (newVal) => {
+                    mutateCache(key, newVal);
+                    keysToInvalidate.push(key);
+                  },
+                  (_a = cache.get(key)) == null ? void 0 : _a.data
+                ];
+              }
+            });
+          } finally {
+            invalidateKeys(keysToInvalidate);
+          }
+        });
+      }
+      const store = nanostores.map({ mutate, loading: false });
+      return store;
+    }
     const __unsafeOverruleSettings = (data) => {
       if (process.env.NODE_ENV !== "test") {
         console.warn(
@@ -193,6 +265,7 @@
     setKeyStoreValue();
     return [keyStore, () => unsubs.forEach((fn) => fn())];
   };
+  const FOCUS = 1, RECONNECT = 2, INVALIDATE_KEYS = 3, MUTATE_CACHE = 4;
   const isServer = typeof window !== "undefined";
   const subscribe = (name, fn) => {
     if (!isServer || process.env.NODE_ENV === "test") {
