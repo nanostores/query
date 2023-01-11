@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@evilmartians/lefthook": "^1.2.6",
+    "@rollup/plugin-strip": "^3.0.2",
     "nanoevents": "^7.0.1",
     "nanostores": "^0.7.1",
     "typescript": "^4.9.4",
@@ -34,8 +35,8 @@
     "vitest": "^0.26.2"
   },
   "peerDependencies": {
-    "nanostores": "^0.7.1",
-    "nanoevents": "^7.0.1"
+    "nanoevents": "^7.0.1",
+    "nanostores": "^0.7.1"
   },
   "engines": {
     "pnpm": "7",

@@ -2,6 +2,7 @@ lockfileVersion: 5.4
 
 specifiers:
   '@evilmartians/lefthook': ^1.2.6
+  '@rollup/plugin-strip': ^3.0.2
   nanoevents: ^7.0.1
   nanostores: ^0.7.1
   typescript: ^4.9.4
@@ -11,6 +12,7 @@ specifiers:
 
 devDependencies:
   '@evilmartians/lefthook': 1.2.6
+  '@rollup/plugin-strip': 3.0.2
   nanoevents: 7.0.1
   nanostores: 0.7.1
   typescript: 4.9.4
@@ -35,6 +37,10 @@ packages:
     os: [darwin, linux, win32]
     hasBin: true
     requiresBuild: true
+    dev: true
+
+  /@jridgewell/sourcemap-codec/1.4.14:
+    resolution: {integrity: sha512-XPSJHWmi394fuUuzDnGz1wiKqWfo1yXecHQMRf2l6hztTO+nPru658AyDngaBe7isIxEkRsPR3FZh+s7iVa4Uw==}
     dev: true
 
   /@microsoft/api-extractor-model/7.25.3:
@@ -95,6 +101,20 @@ packages:
     dependencies:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.15.0
+    dev: true
+
+  /@rollup/plugin-strip/3.0.2:
+    resolution: {integrity: sha512-L8Whin/DB5XsLE586+xcud6yX/pMVUlfalA999uAsC+dtwmBHSiUwtAxMl3eVvykX3N5BhdeAjStqDlzMmfUXw==}
+    engines: {node: '>=14.0.0'}
+    peerDependencies:
+      rollup: ^1.20.0||^2.0.0||^3.0.0
+    peerDependenciesMeta:
+      rollup:
+        optional: true
+    dependencies:
+      '@rollup/pluginutils': 5.0.2
+      estree-walker: 2.0.2
+      magic-string: 0.27.0
     dev: true
 
   /@rollup/pluginutils/5.0.2:
@@ -661,6 +681,13 @@ packages:
     engines: {node: '>=10'}
     dependencies:
       yallist: 4.0.0
+    dev: true
+
+  /magic-string/0.27.0:
+    resolution: {integrity: sha512-8UnnX2PeRAPZuN12svgR9j7M1uWMovg/CEnIwIG0LFkXSJJe4PdfUGiTGl8V9bsBHFUtfVINcSyYxd7q+kx9fA==}
+    engines: {node: '>=12'}
+    dependencies:
+      '@jridgewell/sourcemap-codec': 1.4.14
     dev: true
 
   /merge2/1.4.1:

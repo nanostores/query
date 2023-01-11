@@ -1,27 +1,32 @@
 import { resolve } from "path";
 import { defineConfig } from "vitest/config";
 import dts from "vite-plugin-dts";
+import strip from "@rollup/plugin-strip";
 
 export default defineConfig({
   test: {
     globals: true,
-  },
-  esbuild: {
-    pure: ["console.log"],
   },
   build: {
     minify: false,
     lib: {
       entry: resolve(__dirname, "lib/main.ts"),
       name: "nanofetch",
-      // the proper extensions will be added
       fileName: "nanofetch",
     },
     rollupOptions: {
-      // make sure to externalize deps that shouldn't be bundled
-      // into your library
       external: ["nanostores"],
     },
   },
-  plugins: [dts()],
+  plugins: [
+    {
+      ...strip({
+        include: ["**/*.(ts|js)"],
+        // Intentionally leave out console.warn here
+        functions: ["console.log"],
+      }),
+      apply: "build",
+    },
+    dts(),
+  ],
 });
