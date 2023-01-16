@@ -125,7 +125,7 @@ export const $addComment = createMutatorStore<Comment>(
   async ({ data: comment, invalidate, getCacheUpdater }) => {
     // Dynamic invalidation key
     invalidate(`/api/users/${comment.authorId}`);
-    
+
     // Get previous cache state by key and update it optimistically
     const [updateCache, post] = getCacheUpdater(`/api/post/${comment.postId}`);
     updateCache({ ...post, comments: [...post.comments, comment] });
@@ -133,6 +133,26 @@ export const $addComment = createMutatorStore<Comment>(
     // …and send POST request
   }
 );
+```
+
+The usage is very simple as well:
+
+```tsx
+const AddCommentForm = () => {
+  const { mutate, loading, error } = useStore($addComment);
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        mutate({ postId: "", text: "" });
+      }}
+    >
+      <button disabled={loading}>Send comment</button>
+      {error && <p>Some error happened!</p>}
+    </form>
+  );
+};
 ```
 
 ### To Do
