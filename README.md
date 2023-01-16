@@ -61,12 +61,85 @@ const Post = () => {
 
 ```
 
+## `createFetcherStore`
+
+```ts
+export const $currentPost = createFetcherStore<Post>(['/api/post/', $currentPostId]);
+```
+
+It accepts two arguments: **key** and **fetcher options**.
+
+```ts
+type KeyParts = Array<ReadableAtom<string | null> | string>
+```
+
+Under the hood, nanofetcher will get the string values and pass them to your fetcher
+like this: `fetcher(...keyPartsAsStrings)`. If any atom value is `null`, we never call
+the fetcher—this is the conditional fetching technique we have.
+
+```ts
+type Options = {
+  // The async function that actually returns the data
+  fetcher?: (...keyParts: string[]) => Promise<unknown>;
+  // How much time should pass between running fetcher for the exact same key parts
+  // default = 4s
+  dedupeTime?: number;
+  // If we should revalidate the data when the window focuses
+  // default = false
+  refetchOnFocus?: boolean;
+  // If we should revalidate the data when network connection restores
+  // default = false
+  refetchOnReconnect?: boolean;
+  // If we should run revalidation on an interval, in ms
+  // default = 0, no interval
+  refetchInterval?: number;
+}
+```
+
+The same options can be set on the context level where you actually get the
+`createFetcherStore`.
+
+## `createMutatorStore`
+
+Mutator basically allows for 2 main things: tell nanofetch **what data should be
+revalidated** and **optimistically change data**. Two things = two simple interfaces.
+
+**Auto mutator** should be used when you know **ahead of time** what keys need to be 
+revalidated. Notice, that we use the *keys* here, so it's *concatenated key parts*.
+One auto mutator can revalidate many keys.
+
+```ts
+export const $addComment = createMutatorStore<Comment>(
+  ["/api/posts", "/api/mainPage"],
+  async (comment) => {
+    // Send POST request
+  }
+);
+```
+
+**Manual mutator** should be used when the keys you want to revalidate are either
+data-dependant, or you want to optimistically update the UI.
+
+```ts
+export const $addComment = createMutatorStore<Comment>(
+  async ({ data: comment, invalidate, getCacheUpdater }) => {
+    // Dynamic invalidation key
+    invalidate(`/api/users/${comment.authorId}`);
+    
+    // Get previous cache state by key and update it optimistically
+    const [updateCache, post] = getCacheUpdater(`/api/post/${comment.postId}`);
+    updateCache({ ...post, comments: [...post.comments, comment] });
+
+    // …and send POST request
+  }
+);
+```
+
 ### To Do
 
-- fetcher options
-- what is `key` + сonditional fetching via `null`
-- how to use mutator store
+- installation instructions
 - recipes for popular things: 
+  - creating reactive chains (from one store to another)
   - router integration
   - pagination + infinite scroll
   - tests, stories

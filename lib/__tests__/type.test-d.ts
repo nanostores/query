@@ -52,12 +52,14 @@ describe("types", () => {
 
     type Data = { msg: string };
     type Error = { text: string };
-    const $mutate = createMutator<Data, Error>(async ({ data, getMutator }) => {
-      expectTypeOf(data).toEqualTypeOf<Data>();
-      const [mutateCache, prevState] = getMutator("some-key");
-      expectTypeOf(prevState).toEqualTypeOf<unknown>();
-      expectTypeOf(mutateCache).parameter(0).toEqualTypeOf<unknown>();
-    });
+    const $mutate = createMutator<Data, Error>(
+      async ({ data, getCacheUpdater }) => {
+        expectTypeOf(data).toEqualTypeOf<Data>();
+        const [mutateCache, prevState] = getCacheUpdater("some-key");
+        expectTypeOf(prevState).toEqualTypeOf<unknown>();
+        expectTypeOf(mutateCache).parameter(0).toEqualTypeOf<unknown>();
+      }
+    );
     const { mutate, error } = $mutate.get();
 
     expectTypeOf(mutate({ msg: "" })).resolves.toEqualTypeOf<void>();
