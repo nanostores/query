@@ -101,19 +101,22 @@ describe.concurrent("fetcher tests", () => {
     const [makeFetcher] = nanofetch();
     const store = makeFetcher(keys, { fetcher });
 
-    const pr = storeValueSequence(store, [
-      { loading: true },
-      { data: "id1Value", loading: false },
-      { loading: true },
-      { data: "id2Value", loading: false },
-      { data: "id1Value", loading: false },
-    ]);
-    await advance(20);
-    $id.set("id2");
-    await advance(20);
-    $id.set("id1");
+    store.listen(noop);
+    await advance();
 
-    return pr;
+    expect(store.get()).toEqual({ loading: true });
+    await advance(20);
+    expect(store.get()).toEqual({ data: "id1Value", loading: false });
+
+    $id.set("id2");
+    await advance();
+    expect(store.get()).toEqual({ loading: true });
+    await advance(20);
+    expect(store.get()).toEqual({ data: "id2Value", loading: false });
+
+    $id.set("id1");
+    await advance();
+    expect(store.get()).toEqual({ data: "id1Value", loading: false });
   });
 
   test("do not send request if it was sent before dedupe time", async () => {
@@ -214,20 +217,25 @@ describe.concurrent("fetcher tests", () => {
 
     const [makeFetcher] = nanofetch();
     const store = makeFetcher(keys, { fetcher, dedupeTime: 0 });
-    const pr = storeValueSequence(store, [
-      { loading: true },
-      { data: "id1Value0", loading: false },
-      { loading: true },
-      { data: "id2Value1", loading: false },
-      { data: "id1Value0", loading: false },
-      { data: "id1Value2", loading: false },
-    ]);
+    store.listen(noop);
+
+    expect(store.get()).toEqual({ loading: true });
     await advance(20);
+    expect(store.get()).toEqual({ data: "id1Value0", loading: false });
+
     $id.set("id2");
+    await advance();
+    expect(store.get()).toEqual({ loading: true });
+
     await advance(20);
+    expect(store.get()).toEqual({ data: "id2Value1", loading: false });
+
     $id.set("id1");
+    await advance();
+    expect(store.get()).toEqual({ data: "id1Value0", loading: false });
+
     await advance(20);
-    return pr;
+    expect(store.get()).toEqual({ data: "id1Value2", loading: false });
   });
 
   test("creates interval fetching; disables it once we change key", async () => {
@@ -259,6 +267,38 @@ describe.concurrent("fetcher tests", () => {
     await advance(5);
     expect(fetcher).toHaveBeenCalledTimes(5);
     unsub();
+  });
+
+  test("do not set store state for delayed request if current key has already changed", async () => {
+    const $id = atom<string | null>("one");
+
+    const keys = ["/api", "/key", $id];
+
+    // Fetcher executes 500ms the first time and 100ms the second time it's invoked
+    let i = 0;
+    const fetcher = vi.fn().mockImplementation(async () => {
+      await delay(i === 0 ? 500 : 100);
+      i++;
+      return { counter: i };
+    });
+
+    const [makeFetcher] = nanofetch();
+    const store = makeFetcher(keys, { fetcher });
+    const unsub = storeValueSequence(store, [
+      { loading: true },
+      { data: { counter: 2 }, loading: false },
+      { data: { counter: 1 }, loading: false },
+    ]);
+    await advance(100);
+    $id.set("two");
+    await advance(200);
+    await advance(500);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    await advance(500);
+    $id.set("one");
+    await advance(500);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    return unsub;
   });
 });
 
@@ -511,6 +551,7 @@ function storeValueSequence(store: ReadableAtom<any>, values: any[]) {
 
   const unsub = store.listen((v) => {
     try {
+      console.log(v);
       expect(v).toEqual(values[i]);
     } catch (error) {
       return reject(error);
@@ -530,9 +571,13 @@ function storeValueSequence(store: ReadableAtom<any>, values: any[]) {
  * reliably, etc.
  */
 async function advance(ms = 0) {
+  // I don't know what I'm doing ¯\_(ツ)_/¯
+  await new Promise<void>((r) => r());
   await new Promise<void>((r) => r());
   vi.advanceTimersByTime(ms);
+  await new Promise<void>((r) => r());
   await new Promise<void>((r) => r());
 }
 
 const noop = () => {};
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));

@@ -71,7 +71,8 @@ export const nanofetch = ({
 
   const _refetchOnInterval = new Map<KeyInput, number>(),
     _lastFetch = new Map<Key, number>(),
-    _runningFetches = new Set<Key>();
+    _runningFetches = new Set<Key>(),
+    _latestStoreKey = new Map<FetcherStore, Key>();
 
   // Used for testing to have the highest say in settings hierarchy
   let rewrittenSettings: CommonSettings = {};
@@ -82,6 +83,8 @@ export const nanofetch = ({
     settings: CommonSettings,
     force?: true
   ) => {
+    _latestStoreKey.set(store, key);
+
     if (!focus) return;
 
     const { dedupeTime = 4000, fetcher } = {
@@ -93,9 +96,15 @@ export const nanofetch = ({
 
     const setIfNotMatches = (newVal: any) => {
       if (newVal !== loading || store.get() !== loading) {
-        store.set(newVal);
+        const currKey = _latestStoreKey.get(store);
+        if (currKey === key) {
+          console.log("setting store value", key, newVal);
+          store.set(newVal);
+        } else {
+          console.log("key mismatch for the store", key, "current:", currKey);
+        }
       } else {
-        console.log("omiting setting value");
+        console.log("omiting setting value", key);
       }
     };
 
@@ -131,7 +140,6 @@ export const nanofetch = ({
       console.log("running fetcher", key);
       const res = { data: await fetcher!(...keyParts), loading: false };
       cache.set(key, res);
-      console.log("setting fetched value", key, res);
       setIfNotMatches(res);
       _lastFetch.set(key, getNow());
     } catch (error: any) {

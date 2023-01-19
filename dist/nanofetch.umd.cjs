@@ -32,9 +32,10 @@
     });
     subscribe("blur", () => focus = false);
     subscribe("online", () => events.emit(RECONNECT));
-    const _refetchOnInterval = /* @__PURE__ */ new Map(), _lastFetch = /* @__PURE__ */ new Map(), _runningFetches = /* @__PURE__ */ new Set();
+    const _refetchOnInterval = /* @__PURE__ */ new Map(), _lastFetch = /* @__PURE__ */ new Map(), _runningFetches = /* @__PURE__ */ new Set(), _latestStoreKey = /* @__PURE__ */ new Map();
     let rewrittenSettings = {};
     const runFetcher = async ([key, keyParts], store, settings, force) => {
+      _latestStoreKey.set(store, key);
       if (!focus)
         return;
       const { dedupeTime = 4e3, fetcher } = {
@@ -44,7 +45,10 @@
       const now = getNow();
       const setIfNotMatches = (newVal) => {
         if (newVal !== loading || store.get() !== loading) {
-          store.set(newVal);
+          const currKey = _latestStoreKey.get(store);
+          if (currKey === key) {
+            store.set(newVal);
+          }
         }
       };
       if (!force) {
