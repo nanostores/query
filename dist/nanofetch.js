@@ -267,9 +267,9 @@ const getKeyStore = (keys) => {
   return [keyStore, () => unsubs.forEach((fn) => fn())];
 };
 const FOCUS = 1, RECONNECT = 2, INVALIDATE_KEYS = 3, MUTATE_CACHE = 4;
-const isServer = typeof window !== "undefined";
 const subscribe = (name, fn) => {
-  if (!isServer || process.env.NODE_ENV === "test") {
+  const isServer = typeof window === "undefined";
+  if (!isServer) {
     addEventListener(name, fn);
   }
 };

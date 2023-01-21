@@ -4,6 +4,7 @@ import { nanofetch } from "../main";
 beforeAll(() => {
   vi.useFakeTimers();
   const eventToCb: Record<string, () => void> = {};
+  vi.stubGlobal("window", globalThis);
   vi.stubGlobal(
     "addEventListener",
     (name: string, cb: () => void) => (eventToCb[name] = cb)

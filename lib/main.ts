@@ -395,9 +395,9 @@ type Events = {
   [MUTATE_CACHE]: (key: Key, value: unknown) => void;
 };
 
-const isServer = typeof window !== "undefined";
 const subscribe = (name: string, fn: Fn) => {
-  if (!isServer || process.env.NODE_ENV === "test") {
+  const isServer = typeof window === "undefined";
+  if (!isServer) {
     addEventListener(name, fn);
   }
 };
