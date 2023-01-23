@@ -12,12 +12,12 @@ works.
 - **Built-in cache**. `stale-while-revalidate` caching from 
 [HTTP RFC 5861](https://tools.ietf.org/html/rfc5861). User rarely sees unnecessary
 loaders.
-- **Revalidation**. Automaticallty revalidate on interval, refocus, network recovery.
-Or just revalidate it manually.
+- **Revalidate cache**. Automaticallty revalidate on interval, refocus, network 
+recovery. Or just revalidate it manually.
 - **Nano Stores first**. Finally, fetching logic *outside* of components. Plays nicely
 with [store events](https://github.com/nanostores/nanostores#store-events),
 [computed stores](https://github.com/nanostores/nanostores#computed-stores),
-[router](https://github.com/nanostores/router), and the rest. **Framework agnostic**.
+[router](https://github.com/nanostores/router), and the rest.
 
 ---
 
