@@ -206,7 +206,7 @@ const nanofetch = ({
             invalidate: (keys) => {
               keysToInvalidate.push(...keys);
             },
-            getMutator: (key) => {
+            getCacheUpdater: (key) => {
               var _a;
               return [
                 (newVal) => {

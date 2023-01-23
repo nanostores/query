@@ -499,10 +499,10 @@ describe.concurrent("mutator tests", () => {
       ]);
       await advance(10);
 
-      const $mutate = makeMutator(async ({ getMutator, data }) => {
+      const $mutate = makeMutator(async ({ getCacheUpdater, data }) => {
         try {
           expect(data).toBe("hey");
-          const [mutateCache, prevData] = getMutator(keyParts.join(""));
+          const [mutateCache, prevData] = getCacheUpdater(keyParts.join(""));
           expect(prevData).toBe(0);
           mutateCache("mutated manually");
           await advance(10);

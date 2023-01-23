@@ -47,7 +47,7 @@ export type AutoMutator<T = unknown> = (data: T) => Promise<unknown>;
 export type ManualMutator<T = unknown> = (args: {
   data: T;
   invalidate: (keys: Key[]) => void;
-  getMutator: (key: Key) => [(newValue: unknown) => void, unknown?];
+  getCacheUpdater: (key: Key) => [(newValue: unknown) => void, unknown?];
 }) => Promise<unknown>;
 export type MutatorStore<T = unknown, E = Error> = MapStore<{
   mutate: (data: T) => Promise<void>;
@@ -311,7 +311,7 @@ export const nanofetch = ({
               // We automatically postpone key invalidation up until mutator is run
               keysToInvalidate.push(...keys);
             },
-            getMutator: (key: Key) => [
+            getCacheUpdater: (key: Key) => [
               (newVal: unknown) => {
                 mutateCache(key, newVal);
                 // We always add this key for invalidation after everything runs
