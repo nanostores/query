@@ -1,4 +1,4 @@
-import { MapStore, ReadableAtom, WritableAtom } from "nanostores";
+import { MapStore, ReadableAtom } from "nanostores";
 export declare type KeyInput = Array<string | ReadableAtom<string | null>>;
 declare type Key = string;
 declare type KeyParts = Key[];
@@ -20,7 +20,7 @@ export declare type FetcherValue<T = any, E = Error> = {
     error?: E;
     loading: boolean;
 };
-export declare type FetcherStore<T = any, E = Error> = WritableAtom<FetcherValue<T, E>>;
+export declare type FetcherStore<T = any, E = any> = MapStore<FetcherValue<T, E>>;
 export declare type FetcherStoreCreator<T = any, E = Error> = (keys: KeyInput, settings?: CommonSettings<T>) => FetcherStore<T, E>;
 export declare type AutoMutator<T = unknown> = (data: T) => Promise<unknown>;
 export declare type ManualMutator<T = unknown> = (args: {

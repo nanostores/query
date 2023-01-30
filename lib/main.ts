@@ -1,12 +1,4 @@
-import {
-  atom,
-  map,
-  MapStore,
-  onStart,
-  onStop,
-  ReadableAtom,
-  WritableAtom,
-} from "nanostores";
+import { atom, map, MapStore, onStart, onStop, ReadableAtom } from "nanostores";
 import { createNanoEvents } from "nanoevents";
 
 type Fn = () => void;
@@ -37,7 +29,7 @@ export type FetcherValue<T = any, E = Error> = {
   loading: boolean;
 };
 
-export type FetcherStore<T = any, E = Error> = WritableAtom<FetcherValue<T, E>>;
+export type FetcherStore<T = any, E = any> = MapStore<FetcherValue<T, E>>;
 export type FetcherStoreCreator<T = any, E = Error> = (
   keys: KeyInput,
   settings?: CommonSettings<T>
@@ -84,6 +76,19 @@ export const nanofetch = ({
     force?: true
   ) => {
     _latestStoreKey.set(store, key);
+    const isKeyStillSame = () => _latestStoreKey.get(store) === key;
+    const set = (v: FetcherValue) => {
+        if (isKeyStillSame()) {
+          console.log(`setting to ${v}`);
+          store.set(v);
+        }
+      },
+      setKey = <K extends keyof FetcherValue>(k: K, v: FetcherValue[K]) => {
+        if (isKeyStillSame()) {
+          console.log(`setting ${k} to ${v}`);
+          store.setKey(k, v);
+        }
+      };
 
     if (!focus) return;
 
@@ -94,29 +99,11 @@ export const nanofetch = ({
 
     const now = getNow();
 
-    const setIfNotMatches = (newVal: any) => {
-      if (newVal !== loading || store.get() !== loading) {
-        const currKey = _latestStoreKey.get(store);
-        if (currKey === key) {
-          console.log("setting store value", key, newVal);
-          store.set(newVal);
-        } else {
-          console.log("key mismatch for the store", key, "current:", currKey);
-        }
-      } else {
-        console.log("omiting setting value", key);
-      }
-    };
-
     if (!force) {
-      if (!cache.has(key)) {
-        cache.set(key, loading);
-      }
-
       // Calling it after tick, because otherwise it won't be propagated to .listen
       tick().then(() => {
-        const value = cache.get(key);
-        setIfNotMatches(value);
+        const value = cache.get(key) ?? loading;
+        set(value);
       });
       await tick();
 
@@ -136,14 +123,16 @@ export const nanofetch = ({
     _lastFetch.set(key, now);
     _runningFetches.add(key);
 
+    setKey("loading", true);
+
     try {
       console.log("running fetcher", key);
       const res = { data: await fetcher!(...keyParts), loading: false };
       cache.set(key, res);
-      setIfNotMatches(res);
+      set(res);
       _lastFetch.set(key, getNow());
     } catch (error: any) {
-      store.set({ error, loading: false });
+      set({ error, loading: false });
     } finally {
       _runningFetches.delete(key);
     }
@@ -162,7 +151,7 @@ export const nanofetch = ({
       );
     }
 
-    const fetcherStore: FetcherStore<T> = atom({
+    const fetcherStore: FetcherStore<T> = map({
         loading: true,
       }),
       settings = { ...globalSettings, ...fetcherSettings, fetcher };

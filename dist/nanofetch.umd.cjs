@@ -36,6 +36,16 @@
     let rewrittenSettings = {};
     const runFetcher = async ([key, keyParts], store, settings, force) => {
       _latestStoreKey.set(store, key);
+      const isKeyStillSame = () => _latestStoreKey.get(store) === key;
+      const set = (v) => {
+        if (isKeyStillSame()) {
+          store.set(v);
+        }
+      }, setKey = (k, v) => {
+        if (isKeyStillSame()) {
+          store.setKey(k, v);
+        }
+      };
       if (!focus)
         return;
       const { dedupeTime = 4e3, fetcher } = {
@@ -43,21 +53,11 @@
         ...rewrittenSettings
       };
       const now = getNow();
-      const setIfNotMatches = (newVal) => {
-        if (newVal !== loading || store.get() !== loading) {
-          const currKey = _latestStoreKey.get(store);
-          if (currKey === key) {
-            store.set(newVal);
-          }
-        }
-      };
       if (!force) {
-        if (!cache.has(key)) {
-          cache.set(key, loading);
-        }
         tick().then(() => {
-          const value = cache.get(key);
-          setIfNotMatches(value);
+          var _a;
+          const value = (_a = cache.get(key)) != null ? _a : loading;
+          set(value);
         });
         await tick();
         const last = _lastFetch.get(key);
@@ -70,13 +70,14 @@
       }
       _lastFetch.set(key, now);
       _runningFetches.add(key);
+      setKey("loading", true);
       try {
         const res = { data: await fetcher(...keyParts), loading: false };
         cache.set(key, res);
-        setIfNotMatches(res);
+        set(res);
         _lastFetch.set(key, getNow());
       } catch (error) {
-        store.set({ error, loading: false });
+        set({ error, loading: false });
       } finally {
         _runningFetches.delete(key);
       }
@@ -90,7 +91,7 @@
           "You need to set up either global fetcher of fetcher in createFetcherStore"
         );
       }
-      const fetcherStore = nanostores.atom({
+      const fetcherStore = nanostores.map({
         loading: true
       }), settings = { ...globalSettings, ...fetcherSettings, fetcher };
       let keysInternalUnsub, prevKey, prevKeyParts, keyUnsub, keyStore;
