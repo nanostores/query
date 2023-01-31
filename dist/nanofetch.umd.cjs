@@ -55,9 +55,8 @@
       const now = getNow();
       if (!force) {
         tick().then(() => {
-          var _a;
-          const value = (_a = cache.get(key)) != null ? _a : loading;
-          set(value);
+          const cached = cache.get(key);
+          set(cached ? { data: cached, loading: false } : loading);
         });
         await tick();
         const last = _lastFetch.get(key);
@@ -72,9 +71,9 @@
       _runningFetches.add(key);
       setKey("loading", true);
       try {
-        const res = { data: await fetcher(...keyParts), loading: false };
+        const res = await fetcher(...keyParts);
         cache.set(key, res);
-        set(res);
+        set({ data: res, loading: false });
         _lastFetch.set(key, getNow());
       } catch (error) {
         setKey("error", error);
@@ -149,10 +148,8 @@
       };
       const mutateUnsub = events.on(MUTATE_CACHE, (key, data) => {
         if (key === prevKey) {
-          const curr = cache.get(key);
-          const newState = { ...curr, data };
-          cache.set(key, newState);
-          fetcherStore.set(newState);
+          cache.set(key, data);
+          fetcherStore.setKey("data", data);
         }
       });
       const invalidateUnsub = events.on(INVALIDATE_KEYS, (keys) => {
@@ -211,16 +208,13 @@
               invalidate: (keys) => {
                 keysToInvalidate.push(...keys);
               },
-              getCacheUpdater: (key) => {
-                var _a;
-                return [
-                  (newVal) => {
-                    mutateCache(key, newVal);
-                    keysToInvalidate.push(key);
-                  },
-                  (_a = cache.get(key)) == null ? void 0 : _a.data
-                ];
-              }
+              getCacheUpdater: (key) => [
+                (newVal) => {
+                  mutateCache(key, newVal);
+                  keysToInvalidate.push(key);
+                },
+                cache.get(key)
+              ]
             });
           } finally {
             invalidateKeys(keysToInvalidate);

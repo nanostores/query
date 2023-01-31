@@ -102,8 +102,8 @@ export const nanofetch = ({
     if (!force) {
       // Calling it after tick, because otherwise it won't be propagated to .listen
       tick().then(() => {
-        const value = cache.get(key) ?? loading;
-        set(value);
+        const cached = cache.get(key);
+        set(cached ? { data: cached, loading: false } : loading);
       });
       await tick();
 
@@ -127,9 +127,9 @@ export const nanofetch = ({
 
     try {
       console.log("running fetcher", key);
-      const res = { data: await fetcher!(...keyParts), loading: false };
+      const res = await fetcher!(...keyParts);
       cache.set(key, res);
-      set(res);
+      set({ data: res, loading: false });
       _lastFetch.set(key, getNow());
     } catch (error: any) {
       // Possibly preserving previous cache
@@ -224,10 +224,8 @@ export const nanofetch = ({
 
     const mutateUnsub = events.on(MUTATE_CACHE, (key, data) => {
       if (key === prevKey) {
-        const curr = cache.get(key);
-        const newState = { ...curr, data };
-        cache.set(key, newState);
-        fetcherStore.set(newState);
+        cache.set(key, data);
+        fetcherStore.setKey("data", data as T | undefined);
       }
     });
     const invalidateUnsub = events.on(INVALIDATE_KEYS, (keys) => {
@@ -308,7 +306,7 @@ export const nanofetch = ({
                 // We always add this key for invalidation after everything runs
                 keysToInvalidate.push(key);
               },
-              cache.get(key)?.data,
+              cache.get(key),
             ],
           });
         } finally {
