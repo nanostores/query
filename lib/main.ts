@@ -132,7 +132,9 @@ export const nanofetch = ({
       set(res);
       _lastFetch.set(key, getNow());
     } catch (error: any) {
-      set({ error, loading: false });
+      // Possibly preserving previous cache
+      setKey("error", error);
+      setKey("loading", false);
     } finally {
       _runningFetches.delete(key);
     }

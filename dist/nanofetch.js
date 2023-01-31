@@ -74,7 +74,8 @@ const nanofetch = ({
       set(res);
       _lastFetch.set(key, getNow());
     } catch (error) {
-      set({ error, loading: false });
+      setKey("error", error);
+      setKey("loading", false);
     } finally {
       _runningFetches.delete(key);
     }

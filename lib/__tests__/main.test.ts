@@ -1,4 +1,4 @@
-import { atom, ReadableAtom } from "nanostores";
+import { atom } from "nanostores";
 import { nanofetch } from "../main";
 
 beforeAll(() => {
@@ -294,6 +294,31 @@ describe.concurrent("fetcher tests", () => {
     expect(store.get()).toEqual({ data: { counter: 1 }, loading: false });
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
+
+  test("consecutive error does not wipe cache", async () => {
+    const keys = ["/api", "/key"];
+
+    let shouldErr = false;
+    const fetcher = vi.fn().mockImplementation(async () => {
+      if (shouldErr) throw "err";
+      else {
+        shouldErr = true;
+        return "data";
+      }
+    });
+
+    const [makeFetcher] = nanofetch();
+    const store = makeFetcher(keys, { fetcher, dedupeTime: 0 });
+    store.listen(noop);
+
+    await advance();
+    expect(store.get()).toEqual({ data: "data", loading: false });
+
+    // Getting a new listener to spark a new fetch
+    store.listen(noop);
+    await advance();
+    expect(store.get()).toEqual({ error: "err", data: "data", loading: false });
+  });
 });
 
 describe("refetch logic", () => {
@@ -449,7 +474,7 @@ describe.concurrent("mutator tests", () => {
       expect(fetcher2).toHaveBeenCalledTimes(2);
     });
 
-    test.only("local mutation; invalidation afterwards", async () => {
+    test("local mutation; invalidation afterwards", async () => {
       let counter = 0;
       const fetcher = vi.fn().mockImplementation(async () => counter++);
 
