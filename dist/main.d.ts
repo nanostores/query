@@ -25,8 +25,8 @@ export declare type FetcherStoreCreator<T = any, E = Error> = (keys: KeyInput, s
 export declare type AutoMutator<T = unknown> = (data: T) => Promise<unknown>;
 export declare type ManualMutator<T = unknown> = (args: {
     data: T;
-    invalidate: (keys: Key[]) => void;
-    getCacheUpdater: (key: Key) => [(newValue: unknown) => void, unknown?];
+    invalidate: (keys: Key | Key[]) => void;
+    getCacheUpdater: <T = unknown>(key: Key, shouldRevalidate?: boolean) => [(newValue?: T) => void, T | undefined];
 }) => Promise<unknown>;
 export declare type MutatorStore<T = unknown, E = Error> = MapStore<{
     mutate: (data: T) => Promise<void>;

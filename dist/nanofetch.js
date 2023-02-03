@@ -203,12 +203,14 @@ const nanofetch = ({
           await manualMutator({
             data,
             invalidate: (keys) => {
-              keysToInvalidate.push(...keys);
+              keysToInvalidate.push(...Array.isArray(keys) ? keys : [keys]);
             },
-            getCacheUpdater: (key) => [
+            getCacheUpdater: (key, shouldInvalidate = true) => [
               (newVal) => {
                 mutateCache(key, newVal);
-                keysToInvalidate.push(key);
+                if (shouldInvalidate) {
+                  keysToInvalidate.push(key);
+                }
               },
               cache.get(key)
             ]

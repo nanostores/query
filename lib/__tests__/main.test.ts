@@ -509,6 +509,43 @@ describe.concurrent("mutator tests", () => {
     });
   });
 
+  test("local mutation; invalidation disabled", async () => {
+    let counter = 0;
+    const fetcher = vi.fn().mockImplementation(async () => counter++);
+
+    const keyParts = ["/api", "/key"];
+
+    const [makeFetcher, makeMutator] = nanofetch();
+    const store = makeFetcher(keyParts, { fetcher, dedupeTime: 2e20 });
+    store.listen(noop);
+
+    const $mutate = makeMutator(async ({ getCacheUpdater, data }) => {
+      try {
+        expect(data).toBe("hey");
+        const [mutateCache, prevData] = getCacheUpdater(
+          keyParts.join(""),
+          false
+        );
+        expect(prevData).toBe(0);
+        mutateCache("mutated manually");
+      } catch (error) {
+        console.error(error);
+      }
+    });
+    $mutate.listen(noop);
+
+    await advance(10);
+    expect(store.get()).toEqual({ loading: false, data: 0 });
+
+    const { mutate } = $mutate.get();
+    await mutate("hey");
+    expect(store.get()).toEqual({ loading: false, data: "mutated manually" });
+
+    await advance();
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(store.get()).toEqual({ loading: false, data: "mutated manually" });
+  });
+
   test("settings override works for mutators", async () => {
     const keys = ["/api", "/key"];
     const fetcher1 = vi.fn().mockImplementation(async () => null);
