@@ -43,6 +43,6 @@ export declare const nanofetch: ({ cache, fetcher, ...globalSettings }?: Nanofet
 }, {
     readonly __unsafeOverruleSettings: (data: CommonSettings) => void;
     readonly invalidateKeys: (keySelector: KeySelector) => void;
-    readonly mutateCache: (keySelector: KeySelector, data: unknown) => void;
+    readonly mutateCache: (keySelector: KeySelector, data?: unknown) => void;
 }];
 export {};

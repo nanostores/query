@@ -677,6 +677,29 @@ describe.concurrent("global invalidator and mutator", () => {
     expect(store.get().data).toBe(3);
     expect(fetcher).toBeCalledTimes(1);
   });
+
+  test("global mutation treats undefined as an instruction to wipe key", async () => {
+    const fetcher = vi.fn().mockImplementation(async () => true);
+
+    const keys = ["/api", "/key"];
+
+    const [makeFetcher, , { mutateCache }] = nanofetch({ dedupeTime: 2e20 });
+    const store = makeFetcher(keys, { fetcher });
+    store.listen(noop);
+
+    await advance();
+    expect(store.get().data).toBe(true);
+
+    mutateCache(keys.join(""));
+    await advance();
+    expect(store.get().data).toBe(void 0);
+    store.listen(noop);
+
+    await advance();
+    expect(store.get().data).toBe(true);
+
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
 });
 
 /**

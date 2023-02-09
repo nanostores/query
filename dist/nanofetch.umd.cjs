@@ -150,7 +150,12 @@
       };
       const mutateUnsub = events.on(MUTATE_CACHE, (keySelector, data) => {
         if (prevKey && testKeyAgainstSelector(prevKey, keySelector)) {
-          cache.set(prevKey, data);
+          if (data === void 0) {
+            cache.delete(prevKey);
+            _lastFetch.delete(prevKey);
+          } else {
+            cache.set(prevKey, data);
+          }
           fetcherStore.setKey("data", data);
         }
       });

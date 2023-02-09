@@ -232,7 +232,13 @@ export const nanofetch = ({
 
     const mutateUnsub = events.on(MUTATE_CACHE, (keySelector, data) => {
       if (prevKey && testKeyAgainstSelector(prevKey, keySelector)) {
-        cache.set(prevKey, data);
+        // Removing key altogether
+        if (data === void 0) {
+          cache.delete(prevKey);
+          _lastFetch.delete(prevKey);
+        } else {
+          cache.set(prevKey, data);
+        }
         fetcherStore.setKey("data", data as T | undefined);
       }
     });
@@ -258,7 +264,7 @@ export const nanofetch = ({
   const invalidateKeys = (keySelector: KeySelector) => {
     events.emit(INVALIDATE_KEYS, keySelector);
   };
-  const mutateCache = (keySelector: KeySelector, data: unknown) => {
+  const mutateCache = (keySelector: KeySelector, data?: unknown) => {
     events.emit(MUTATE_CACHE, keySelector, data);
   };
 
@@ -395,7 +401,7 @@ type Events = {
   [FOCUS]: Fn;
   [RECONNECT]: Fn;
   [INVALIDATE_KEYS]: (keySelector: KeySelector) => void;
-  [MUTATE_CACHE]: (keySelector: KeySelector, value: unknown) => void;
+  [MUTATE_CACHE]: (keySelector: KeySelector, value?: unknown) => void;
 };
 
 const subscribe = (name: string, fn: Fn) => {
