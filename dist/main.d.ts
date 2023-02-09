@@ -1,7 +1,8 @@
 import { MapStore, ReadableAtom } from "nanostores";
 export declare type KeyInput = Array<string | ReadableAtom<string | null>>;
 declare type Key = string;
-declare type KeyParts = Key[];
+declare type KeyParts = string[];
+declare type KeySelector = Key | Key[] | ((key: Key) => boolean);
 export declare type Fetcher<T> = (...args: KeyParts) => Promise<T>;
 declare type EventTypes = {
     onError?: (error: any) => unknown;
@@ -41,5 +42,7 @@ export declare const nanofetch: ({ cache, fetcher, ...globalSettings }?: Nanofet
     <T_2 = unknown, E_2 = Error>(mutator: ManualMutator<T_2>): MutatorStore<T_2, E_2>;
 }, {
     readonly __unsafeOverruleSettings: (data: CommonSettings) => void;
+    readonly invalidateKeys: (keySelector: KeySelector) => void;
+    readonly mutateCache: (keySelector: KeySelector, data: unknown) => void;
 }];
 export {};

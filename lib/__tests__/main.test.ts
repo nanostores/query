@@ -618,6 +618,67 @@ describe.concurrent("mutator tests", () => {
   });
 });
 
+describe.concurrent("global invalidator and mutator", () => {
+  test("global invalidator works", async () => {
+    const fetcher = vi.fn().mockImplementation(async () => true);
+
+    const keys = ["/api", "/key"];
+
+    const [makeFetcher, , { invalidateKeys }] = nanofetch();
+    const store = makeFetcher(keys, { fetcher });
+    store.listen(noop);
+
+    await advance();
+    expect(fetcher).toBeCalledTimes(1);
+    invalidateKeys(keys.join(""));
+    await advance();
+    expect(fetcher).toBeCalledTimes(2);
+    invalidateKeys([keys.join("")]);
+    await advance();
+    expect(fetcher).toBeCalledTimes(3);
+    invalidateKeys((key) => key === "/api/key");
+    await advance();
+    expect(fetcher).toBeCalledTimes(4);
+    invalidateKeys("incorrect");
+    invalidateKeys(["incorrect"]);
+    invalidateKeys(() => false);
+    await advance();
+    expect(fetcher).toBeCalledTimes(4);
+  });
+
+  test("global mutation works", async () => {
+    const fetcher = vi.fn().mockImplementation(async () => true);
+
+    const keys = ["/api", "/key"];
+
+    const [makeFetcher, , { mutateCache }] = nanofetch();
+    const store = makeFetcher(keys, { fetcher });
+    store.listen(noop);
+
+    await advance();
+    expect(store.get().data).toBe(true);
+
+    mutateCache(keys.join(""), 1);
+    await advance();
+    expect(store.get().data).toBe(1);
+
+    mutateCache([keys.join("")], 2);
+    await advance();
+    expect(store.get().data).toBe(2);
+
+    mutateCache((key) => key === "/api/key", 3);
+    await advance();
+    expect(store.get().data).toBe(3);
+
+    mutateCache("incorrect", 123);
+    mutateCache(["incorrect"], 123);
+    mutateCache(() => false, 123);
+    await advance();
+    expect(store.get().data).toBe(3);
+    expect(fetcher).toBeCalledTimes(1);
+  });
+});
+
 /**
  * We use advance wrapped with promises, because we heavily rely on ticks
  * in the library itself to propagate cached values, set initial values

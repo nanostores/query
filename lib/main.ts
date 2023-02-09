@@ -6,7 +6,8 @@ type Fn = () => void;
 export type KeyInput = Array<string | ReadableAtom<string | null>>;
 
 type Key = string;
-type KeyParts = Key[];
+type KeyParts = string[];
+type KeySelector = Key | Key[] | ((key: Key) => boolean);
 
 export type Fetcher<T> = (...args: KeyParts) => Promise<T>;
 
@@ -229,14 +230,14 @@ export const nanofetch = ({
       return originListen(listener);
     };
 
-    const mutateUnsub = events.on(MUTATE_CACHE, (key, data) => {
-      if (key === prevKey) {
-        cache.set(key, data);
+    const mutateUnsub = events.on(MUTATE_CACHE, (keySelector, data) => {
+      if (prevKey && testKeyAgainstSelector(prevKey, keySelector)) {
+        cache.set(prevKey, data);
         fetcherStore.setKey("data", data as T | undefined);
       }
     });
-    const invalidateUnsub = events.on(INVALIDATE_KEYS, (keys) => {
-      if (prevKey && keys.includes(prevKey)) {
+    const invalidateUnsub = events.on(INVALIDATE_KEYS, (keySelector) => {
+      if (prevKey && testKeyAgainstSelector(prevKey, keySelector)) {
         runFetcher([prevKey, prevKeyParts!], fetcherStore, settings, true);
       }
     });
@@ -254,11 +255,11 @@ export const nanofetch = ({
     return fetcherStore as FetcherStore<T, E>;
   };
 
-  const invalidateKeys = (keys: Key[]) => {
-    events.emit(INVALIDATE_KEYS, keys);
+  const invalidateKeys = (keySelector: KeySelector) => {
+    events.emit(INVALIDATE_KEYS, keySelector);
   };
-  const mutateCache = (key: Key, data: unknown) => {
-    events.emit(MUTATE_CACHE, key, data);
+  const mutateCache = (keySelector: KeySelector, data: unknown) => {
+    events.emit(MUTATE_CACHE, keySelector, data);
   };
 
   function createMutatorStore<T = unknown, E = Error>(
@@ -347,7 +348,7 @@ export const nanofetch = ({
   return [
     createFetcherStore,
     createMutatorStore,
-    { __unsafeOverruleSettings },
+    { __unsafeOverruleSettings, invalidateKeys, mutateCache },
   ] as const;
 };
 
@@ -393,8 +394,8 @@ const FOCUS = 1,
 type Events = {
   [FOCUS]: Fn;
   [RECONNECT]: Fn;
-  [INVALIDATE_KEYS]: (keys: Key[]) => void;
-  [MUTATE_CACHE]: (key: Key, value: unknown) => void;
+  [INVALIDATE_KEYS]: (keySelector: KeySelector) => void;
+  [MUTATE_CACHE]: (keySelector: KeySelector, value: unknown) => void;
 };
 
 const subscribe = (name: string, fn: Fn) => {
@@ -402,6 +403,12 @@ const subscribe = (name: string, fn: Fn) => {
   if (!isServer) {
     addEventListener(name, fn);
   }
+};
+
+const testKeyAgainstSelector = (key: Key, selector: KeySelector): boolean => {
+  if (Array.isArray(selector)) return selector.includes(key);
+  else if (typeof selector === "function") return selector(key);
+  else return key === selector;
 };
 
 const getNow = () => new Date().getTime();

@@ -145,14 +145,14 @@ const nanofetch = ({
       handleNewListener();
       return originListen(listener);
     };
-    const mutateUnsub = events.on(MUTATE_CACHE, (key, data) => {
-      if (key === prevKey) {
-        cache.set(key, data);
+    const mutateUnsub = events.on(MUTATE_CACHE, (keySelector, data) => {
+      if (prevKey && testKeyAgainstSelector(prevKey, keySelector)) {
+        cache.set(prevKey, data);
         fetcherStore.setKey("data", data);
       }
     });
-    const invalidateUnsub = events.on(INVALIDATE_KEYS, (keys) => {
-      if (prevKey && keys.includes(prevKey)) {
+    const invalidateUnsub = events.on(INVALIDATE_KEYS, (keySelector) => {
+      if (prevKey && testKeyAgainstSelector(prevKey, keySelector)) {
         runFetcher([prevKey, prevKeyParts], fetcherStore, settings, true);
       }
     });
@@ -168,11 +168,11 @@ const nanofetch = ({
     });
     return fetcherStore;
   };
-  const invalidateKeys = (keys) => {
-    events.emit(INVALIDATE_KEYS, keys);
+  const invalidateKeys = (keySelector) => {
+    events.emit(INVALIDATE_KEYS, keySelector);
   };
-  const mutateCache = (key, data) => {
-    events.emit(MUTATE_CACHE, key, data);
+  const mutateCache = (keySelector, data) => {
+    events.emit(MUTATE_CACHE, keySelector, data);
   };
   function createMutatorStore(...args) {
     const wrapMutator = (innerFn) => async (data) => {
@@ -239,7 +239,7 @@ const nanofetch = ({
   return [
     createFetcherStore,
     createMutatorStore,
-    { __unsafeOverruleSettings }
+    { __unsafeOverruleSettings, invalidateKeys, mutateCache }
   ];
 };
 const getKeyStore = (keys) => {
@@ -275,6 +275,14 @@ const subscribe = (name, fn) => {
   if (!isServer) {
     addEventListener(name, fn);
   }
+};
+const testKeyAgainstSelector = (key, selector) => {
+  if (Array.isArray(selector))
+    return selector.includes(key);
+  else if (typeof selector === "function")
+    return selector(key);
+  else
+    return key === selector;
 };
 const getNow = () => new Date().getTime();
 const tick = () => new Promise((r) => r());
