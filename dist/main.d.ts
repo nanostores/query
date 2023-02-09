@@ -3,6 +3,9 @@ export declare type KeyInput = Array<string | ReadableAtom<string | null>>;
 declare type Key = string;
 declare type KeyParts = Key[];
 export declare type Fetcher<T> = (...args: KeyParts) => Promise<T>;
+declare type EventTypes = {
+    onError?: (error: any) => unknown;
+};
 declare type RefetchSettings = {
     dedupeTime?: number;
     refetchOnFocus?: boolean;
@@ -11,7 +14,7 @@ declare type RefetchSettings = {
 };
 declare type CommonSettings<T = unknown> = {
     fetcher?: Fetcher<T>;
-} & RefetchSettings;
+} & RefetchSettings & EventTypes;
 declare type NanofetchArgs = {
     cache?: Map<Key, any>;
 } & CommonSettings;
@@ -36,5 +39,7 @@ export declare type MutatorStore<T = unknown, E = Error> = MapStore<{
 export declare const nanofetch: ({ cache, fetcher, ...globalSettings }?: NanofetchArgs) => readonly [<T = unknown, E = any>(keyInput: KeyInput, { fetcher, ...fetcherSettings }?: CommonSettings<T>) => FetcherStore<T, E>, {
     <T_1 = unknown, E_1 = Error>(keysToInvalidate: Key[], mutator: AutoMutator<T_1>): MutatorStore<T_1, E_1>;
     <T_2 = unknown, E_2 = Error>(mutator: ManualMutator<T_2>): MutatorStore<T_2, E_2>;
-}, (data: CommonSettings) => void];
+}, {
+    readonly __unsafeOverruleSettings: (data: CommonSettings) => void;
+}];
 export {};

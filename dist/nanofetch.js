@@ -32,6 +32,7 @@ const nanofetch = ({
   const _refetchOnInterval = /* @__PURE__ */ new Map(), _lastFetch = /* @__PURE__ */ new Map(), _runningFetches = /* @__PURE__ */ new Set(), _latestStoreKey = /* @__PURE__ */ new Map();
   let rewrittenSettings = {};
   const runFetcher = async ([key, keyParts], store, settings, force) => {
+    var _a;
     _latestStoreKey.set(store, key);
     const isKeyStillSame = () => _latestStoreKey.get(store) === key;
     const set = (v) => {
@@ -73,6 +74,7 @@ const nanofetch = ({
       set({ data: res, loading: false });
       _lastFetch.set(key, getNow());
     } catch (error) {
+      (_a = settings.onError) == null ? void 0 : _a.call(settings, error);
       setKey("error", error);
       setKey("loading", false);
     } finally {
@@ -174,15 +176,18 @@ const nanofetch = ({
   };
   function createMutatorStore(...args) {
     const wrapMutator = (innerFn) => async (data) => {
+      var _a;
+      const settings = {
+        ...globalSettings,
+        fetcher: innerFn,
+        ...rewrittenSettings
+      };
       try {
         store.setKey("error", void 0);
         store.setKey("loading", true);
-        if (rewrittenSettings.fetcher) {
-          await rewrittenSettings.fetcher(data);
-        } else {
-          await innerFn(data);
-        }
+        await settings.fetcher(data);
       } catch (error) {
+        (_a = settings.onError) == null ? void 0 : _a.call(settings, error);
         store.setKey("error", error);
       } finally {
         store.setKey("loading", false);
@@ -234,7 +239,7 @@ const nanofetch = ({
   return [
     createFetcherStore,
     createMutatorStore,
-    __unsafeOverruleSettings
+    { __unsafeOverruleSettings }
   ];
 };
 const getKeyStore = (keys) => {

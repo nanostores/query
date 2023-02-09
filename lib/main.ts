@@ -9,6 +9,8 @@ type Key = string;
 type KeyParts = Key[];
 
 export type Fetcher<T> = (...args: KeyParts) => Promise<T>;
+
+type EventTypes = { onError?: (error: any) => unknown };
 type RefetchSettings = {
   dedupeTime?: number;
   refetchOnFocus?: boolean;
@@ -17,7 +19,8 @@ type RefetchSettings = {
 };
 type CommonSettings<T = unknown> = {
   fetcher?: Fetcher<T>;
-} & RefetchSettings;
+} & RefetchSettings &
+  EventTypes;
 
 type NanofetchArgs = {
   cache?: Map<Key, any>;
@@ -136,6 +139,7 @@ export const nanofetch = ({
       _lastFetch.set(key, getNow());
     } catch (error: any) {
       // Possibly preserving previous cache
+      settings.onError?.(error);
       setKey("error", error);
       setKey("loading", false);
     } finally {
@@ -269,15 +273,17 @@ export const nanofetch = ({
   ): MutatorStore<T, E> {
     const wrapMutator =
       (innerFn: (data: T) => Promise<unknown>) => async (data: T) => {
+        const settings = {
+          ...globalSettings,
+          fetcher: innerFn,
+          ...rewrittenSettings,
+        };
         try {
           store.setKey("error", void 0);
           store.setKey("loading", true);
-          if (rewrittenSettings.fetcher) {
-            await rewrittenSettings.fetcher(data as unknown as any);
-          } else {
-            await innerFn(data);
-          }
+          await (settings.fetcher as typeof innerFn)(data);
         } catch (error) {
+          settings.onError?.(error);
           store.setKey("error", error as E);
         } finally {
           store.setKey("loading", false);
@@ -341,7 +347,7 @@ export const nanofetch = ({
   return [
     createFetcherStore,
     createMutatorStore,
-    __unsafeOverruleSettings,
+    { __unsafeOverruleSettings },
   ] as const;
 };
 

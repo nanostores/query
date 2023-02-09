@@ -176,7 +176,7 @@ describe.concurrent("fetcher tests", () => {
       .fn()
       .mockImplementation(() => new Promise((r) => r(null)));
 
-    const [makeFetcher, , __unsafeOverruleSettings] = nanofetch();
+    const [makeFetcher, , { __unsafeOverruleSettings }] = nanofetch();
     const store = makeFetcher(keys, { fetcher: fetcher1 });
     __unsafeOverruleSettings({ fetcher: fetcher2 });
     store.listen(noop);
@@ -318,6 +318,38 @@ describe.concurrent("fetcher tests", () => {
     store.listen(noop);
     await advance();
     expect(store.get()).toEqual({ error: "err", data: "data", loading: false });
+  });
+
+  test("onError handler is called whenever error happens", async () => {
+    const keys = ["/api", "/key"];
+
+    const errInstance = new Error();
+
+    const fetcher = vi.fn().mockImplementation(async () => {
+      throw errInstance;
+    });
+
+    const onErrorContext = vi.fn();
+
+    const [makeFetcher] = nanofetch({ onError: onErrorContext });
+    {
+      const store = makeFetcher(keys, { fetcher, dedupeTime: 0 });
+      store.listen(noop);
+
+      await advance();
+      expect(onErrorContext).toBeCalledTimes(1);
+      expect(onErrorContext.mock.lastCall?.[0]).toBe(errInstance);
+    }
+    {
+      const onError = vi.fn();
+      const store = makeFetcher(keys, { fetcher, dedupeTime: 0, onError });
+      store.listen(noop);
+
+      await advance();
+      expect(onErrorContext).toBeCalledTimes(1);
+      expect(onError).toBeCalledTimes(1);
+      expect(onError.mock.lastCall?.[0]).toBe(errInstance);
+    }
   });
 });
 
@@ -507,6 +539,27 @@ describe.concurrent("mutator tests", () => {
       expect(fetcher).toHaveBeenCalledTimes(2);
       expect(store.get()).toEqual({ loading: false, data: 1 });
     });
+
+    test("onError handler is called whenever error happens", async () => {
+      const errInstance = new Error();
+
+      const fetcher = vi.fn().mockImplementation(async () => {
+        throw errInstance;
+      });
+
+      const onErrorContext = vi.fn();
+
+      const [, makeMutator] = nanofetch({ onError: onErrorContext });
+      const store = makeMutator<void>([], fetcher);
+      store.listen(noop);
+
+      const { mutate } = store.get();
+      await mutate();
+
+      await advance();
+      expect(onErrorContext).toBeCalledTimes(1);
+      expect(onErrorContext.mock.lastCall?.[0]).toBe(errInstance);
+    });
   });
 
   test("local mutation; invalidation disabled", async () => {
@@ -551,7 +604,7 @@ describe.concurrent("mutator tests", () => {
     const fetcher1 = vi.fn().mockImplementation(async () => null);
     const fetcher2 = vi.fn().mockImplementation(async () => null);
 
-    const [, makeMutator, __unsafeOverruleSettings] = nanofetch();
+    const [, makeMutator, { __unsafeOverruleSettings }] = nanofetch();
     const $mutate = makeMutator(keys, fetcher1);
     __unsafeOverruleSettings({ fetcher: fetcher2 });
 
