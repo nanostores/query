@@ -409,6 +409,34 @@ describe("refetch logic", () => {
     await advance(5);
     expect(fetcher).toHaveBeenCalledTimes(6);
   });
+
+  test("store isn't updated if data has a stable identity", async () => {
+    const keys = ["/api", "/key"];
+
+    let data = {};
+    const fetcher = vi.fn().mockImplementation(async () => data);
+
+    const [makeFetcher] = nanofetch();
+    const store = makeFetcher(keys, {
+      fetcher,
+      refetchOnFocus: true,
+      refetchInterval: 100,
+      dedupeTime: 2e200,
+    });
+
+    const listener = vi.fn();
+    store.listen(listener);
+
+    await advance();
+    expect(store.get()).toEqual({ data: {}, loading: false });
+    expect(listener).toHaveBeenCalledTimes(1);
+    // Forcing the
+    for (let i = 0; i < 10; i++) {
+      dispatchEvent(new Event("focus"));
+      await advance(200);
+    }
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe.concurrent("mutator tests", () => {

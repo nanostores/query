@@ -57,7 +57,8 @@
       if (!force) {
         tick().then(() => {
           const cached = cache.get(key);
-          set(cached ? { data: cached, loading: false } : loading);
+          if (store.get().data !== cached)
+            set(cached ? { data: cached, loading: false } : loading);
         });
         await tick();
         const last = _lastFetch.get(key);

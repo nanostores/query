@@ -110,7 +110,9 @@ export const nanofetch = ({
       // Calling it after tick, because otherwise it won't be propagated to .listen
       tick().then(() => {
         const cached = cache.get(key);
-        set(cached ? { data: cached, loading: false } : loading);
+        // Prevent exessive store updates
+        if(store.get().data !== cached)
+          set(cached ? { data: cached, loading: false } : loading);
       });
       await tick();
 
