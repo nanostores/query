@@ -111,7 +111,7 @@ export const nanofetch = ({
       tick().then(() => {
         const cached = cache.get(key);
         // Prevent exessive store updates
-        if(store.get().data !== cached)
+        if (store.get().data !== cached)
           set(cached ? { data: cached, loading: false } : loading);
       });
       await tick();
@@ -219,6 +219,26 @@ export const nanofetch = ({
       if (refetchOnFocus) evtUnsubs.push(events.on(FOCUS, runRefetcher));
       if (refetchOnReconnect)
         evtUnsubs.push(events.on(RECONNECT, runRefetcher));
+
+      evtUnsubs.push(
+        events.on(MUTATE_CACHE, (keySelector, data) => {
+          if (prevKey && testKeyAgainstSelector(prevKey, keySelector)) {
+            // Removing key altogether
+            if (data === void 0) {
+              cache.delete(prevKey);
+              _lastFetch.delete(prevKey);
+            } else {
+              cache.set(prevKey, data);
+            }
+            fetcherStore.setKey("data", data as T | undefined);
+          }
+        }),
+        events.on(INVALIDATE_KEYS, (keySelector) => {
+          if (prevKey && testKeyAgainstSelector(prevKey, keySelector)) {
+            runFetcher([prevKey, prevKeyParts!], fetcherStore, settings, true);
+          }
+        })
+      );
     });
 
     const handleNewListener = () => {
@@ -232,27 +252,7 @@ export const nanofetch = ({
       return originListen(listener);
     };
 
-    const mutateUnsub = events.on(MUTATE_CACHE, (keySelector, data) => {
-      if (prevKey && testKeyAgainstSelector(prevKey, keySelector)) {
-        // Removing key altogether
-        if (data === void 0) {
-          cache.delete(prevKey);
-          _lastFetch.delete(prevKey);
-        } else {
-          cache.set(prevKey, data);
-        }
-        fetcherStore.setKey("data", data as T | undefined);
-      }
-    });
-    const invalidateUnsub = events.on(INVALIDATE_KEYS, (keySelector) => {
-      if (prevKey && testKeyAgainstSelector(prevKey, keySelector)) {
-        runFetcher([prevKey, prevKeyParts!], fetcherStore, settings, true);
-      }
-    });
-
     onStop(fetcherStore, () => {
-      mutateUnsub();
-      invalidateUnsub();
       keysInternalUnsub?.();
       evtUnsubs.forEach((fn) => fn());
       keyUnsub?.();

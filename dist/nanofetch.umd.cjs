@@ -139,6 +139,24 @@
           evtUnsubs.push(events.on(FOCUS, runRefetcher));
         if (refetchOnReconnect)
           evtUnsubs.push(events.on(RECONNECT, runRefetcher));
+        evtUnsubs.push(
+          events.on(MUTATE_CACHE, (keySelector, data) => {
+            if (prevKey && testKeyAgainstSelector(prevKey, keySelector)) {
+              if (data === void 0) {
+                cache.delete(prevKey);
+                _lastFetch.delete(prevKey);
+              } else {
+                cache.set(prevKey, data);
+              }
+              fetcherStore.setKey("data", data);
+            }
+          }),
+          events.on(INVALIDATE_KEYS, (keySelector) => {
+            if (prevKey && testKeyAgainstSelector(prevKey, keySelector)) {
+              runFetcher([prevKey, prevKeyParts], fetcherStore, settings, true);
+            }
+          })
+        );
       });
       const handleNewListener = () => {
         if (prevKey && prevKeyParts)
@@ -149,25 +167,7 @@
         handleNewListener();
         return originListen(listener);
       };
-      const mutateUnsub = events.on(MUTATE_CACHE, (keySelector, data) => {
-        if (prevKey && testKeyAgainstSelector(prevKey, keySelector)) {
-          if (data === void 0) {
-            cache.delete(prevKey);
-            _lastFetch.delete(prevKey);
-          } else {
-            cache.set(prevKey, data);
-          }
-          fetcherStore.setKey("data", data);
-        }
-      });
-      const invalidateUnsub = events.on(INVALIDATE_KEYS, (keySelector) => {
-        if (prevKey && testKeyAgainstSelector(prevKey, keySelector)) {
-          runFetcher([prevKey, prevKeyParts], fetcherStore, settings, true);
-        }
-      });
       nanostores.onStop(fetcherStore, () => {
-        mutateUnsub();
-        invalidateUnsub();
         keysInternalUnsub == null ? void 0 : keysInternalUnsub();
         evtUnsubs.forEach((fn) => fn());
         keyUnsub == null ? void 0 : keyUnsub();
