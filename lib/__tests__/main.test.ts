@@ -34,6 +34,20 @@ describe.concurrent("fetcher tests", () => {
     expect(fetcher).toHaveBeenCalledWith(...keys);
   });
 
+  test("works for string-based keys", async () => {
+    const fetcher = vi.fn().mockImplementation(async () => true);
+
+    const [makeFetcher] = nanofetch();
+    const store = makeFetcher("/api/key", { fetcher });
+    store.listen(noop);
+    store.listen(noop);
+    store.listen(noop);
+
+    await advance(10);
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(fetcher).toHaveBeenCalledWith("/api/key");
+  });
+
   test("propagates loading state", async () => {
     const keys = ["/api", "/key"];
     const fetcher = vi
@@ -440,10 +454,10 @@ describe("refetch logic", () => {
 });
 
 describe.concurrent("mutator tests", () => {
-  describe.concurrent("auto mutator", () => {
+  describe.concurrent("mutator", () => {
     test("correct transitions", async () => {
       const [, makeMutator] = nanofetch();
-      const $mutate = makeMutator([""], async () => {});
+      const $mutate = makeMutator<void, string>(async () => "hey");
       $mutate.listen(noop);
 
       const { mutate } = $mutate.get();
@@ -452,47 +466,7 @@ describe.concurrent("mutator tests", () => {
       expect($mutate.get().loading).toBeTruthy();
       await advance();
       expect($mutate.get().loading).toBeFalsy();
-
-      return pr;
-    });
-
-    test("invalidates keys; invalidation ignores dedupe; invalidation ignores cache", async () => {
-      let counter = 0;
-      const fetcher = vi.fn().mockImplementation(async () => counter++);
-
-      const keyParts = ["/api", "/key"];
-
-      const [makeFetcher, makeMutator] = nanofetch();
-      const $data = makeFetcher(keyParts, { fetcher, dedupeTime: 2e20 });
-      $data.listen(noop);
-
-      const $mutate = makeMutator([keyParts.join("")], async (data) => {
-        expect(data).toBe("hey");
-      });
-      $mutate.listen(noop);
-
-      await advance();
-      expect($data.get()).toEqual({ loading: false, data: 0 });
-
-      const { mutate } = $mutate.get();
-      await mutate("hey");
-      await advance();
-      expect($data.get()).toEqual({ loading: false, data: 1 });
-    });
-  });
-
-  describe.concurrent("manual mutator", () => {
-    test("correct transitions", async () => {
-      const [, makeMutator] = nanofetch();
-      const $mutate = makeMutator(async () => {});
-      $mutate.listen(noop);
-
-      const { mutate } = $mutate.get();
-      expect($mutate.get().loading).toBeFalsy();
-      const pr = mutate(void 0);
-      expect($mutate.get().loading).toBeTruthy();
-      await advance();
-      expect($mutate.get().loading).toBeFalsy();
+      expect($mutate.get().data).toBe("hey");
 
       return pr;
     });
@@ -515,20 +489,27 @@ describe.concurrent("mutator tests", () => {
       $data.listen(noop);
       $data2.listen(noop);
 
-      const $mutate = makeMutator(async ({ invalidate, data }) => {
-        expect(data).toBe("hey");
-        invalidate([keyParts.join("")]);
-        invalidate([keyParts2.join("")]);
-        await advance(10);
-        expect(fetcher).toHaveBeenCalledOnce();
-        expect(fetcher2).toHaveBeenCalledOnce();
+      let fetcherCallCountAfterInvalidation = -1,
+        fetcher2CallCountAfterInvalidation = -1;
+      const mutator = vi.fn().mockImplementation(({ invalidate }) => {
+        invalidate(keyParts.join(""));
+        invalidate(keyParts2.join(""));
+
+        fetcherCallCountAfterInvalidation = fetcher.mock.calls.length;
+        fetcher2CallCountAfterInvalidation = fetcher2.mock.calls.length;
       });
+
+      const $mutate = makeMutator<string>(mutator);
       $mutate.listen(noop);
 
       await advance();
       const { mutate } = $mutate.get();
       await mutate("hey");
+      expect(fetcherCallCountAfterInvalidation).toBe(1);
+      expect(fetcher2CallCountAfterInvalidation).toBe(1);
       await advance();
+
+      expect(mutator.mock.calls[0][0].data).toBe("hey");
 
       expect(fetcher).toHaveBeenCalledTimes(2);
       expect(fetcher2).toHaveBeenCalledTimes(2);
@@ -544,7 +525,7 @@ describe.concurrent("mutator tests", () => {
       const store = makeFetcher(keyParts, { fetcher, dedupeTime: 2e20 });
       store.listen(noop);
 
-      const $mutate = makeMutator(async ({ getCacheUpdater, data }) => {
+      const $mutate = makeMutator<string>(async ({ getCacheUpdater, data }) => {
         try {
           expect(data).toBe("hey");
           const [mutateCache, prevData] = getCacheUpdater(keyParts.join(""));
@@ -578,7 +559,7 @@ describe.concurrent("mutator tests", () => {
       const onErrorContext = vi.fn();
 
       const [, makeMutator] = nanofetch({ onError: onErrorContext });
-      const store = makeMutator<void>([], fetcher);
+      const store = makeMutator(fetcher);
       store.listen(noop);
 
       const { mutate } = store.get();
@@ -600,7 +581,7 @@ describe.concurrent("mutator tests", () => {
     const store = makeFetcher(keyParts, { fetcher, dedupeTime: 2e20 });
     store.listen(noop);
 
-    const $mutate = makeMutator(async ({ getCacheUpdater, data }) => {
+    const $mutate = makeMutator<string>(async ({ getCacheUpdater, data }) => {
       try {
         expect(data).toBe("hey");
         const [mutateCache, prevData] = getCacheUpdater(
@@ -628,18 +609,17 @@ describe.concurrent("mutator tests", () => {
   });
 
   test("settings override works for mutators", async () => {
-    const keys = ["/api", "/key"];
     const fetcher1 = vi.fn().mockImplementation(async () => null);
     const fetcher2 = vi.fn().mockImplementation(async () => null);
 
     const [, makeMutator, { __unsafeOverruleSettings }] = nanofetch();
-    const $mutate = makeMutator(keys, fetcher1);
+    const $mutate = makeMutator(fetcher1);
     __unsafeOverruleSettings({ fetcher: fetcher2 });
 
     $mutate.listen(noop);
     await advance();
     const { mutate } = $mutate.get();
-    await mutate(void 0);
+    await mutate();
     await advance();
     expect(fetcher1).toBeCalledTimes(0);
     expect(fetcher2).toBeCalledTimes(1);

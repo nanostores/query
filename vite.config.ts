@@ -15,7 +15,7 @@ export default defineConfig({
       fileName: "nanofetch",
     },
     rollupOptions: {
-      external: ["nanostores"],
+      external: ["nanostores", "nanoevents"],
     },
   },
   plugins: [

@@ -1,21 +1,5 @@
 import { map, onStart, onStop, atom } from "nanostores";
-let createNanoEvents = () => ({
-  events: {},
-  emit(event, ...args) {
-    let callbacks = this.events[event] || [];
-    for (let i = 0, length = callbacks.length; i < length; i++) {
-      callbacks[i](...args);
-    }
-  },
-  on(event, cb) {
-    var _a;
-    ((_a = this.events[event]) == null ? void 0 : _a.push(cb)) || (this.events[event] = [cb]);
-    return () => {
-      var _a2;
-      this.events[event] = (_a2 = this.events[event]) == null ? void 0 : _a2.filter((i) => cb !== i);
-    };
-  }
-});
+import { createNanoEvents } from "nanoevents";
 const nanofetch = ({
   cache = /* @__PURE__ */ new Map(),
   fetcher: globalFetcher,
@@ -180,41 +164,23 @@ const nanofetch = ({
   const mutateCache = (keySelector, data) => {
     events.emit(MUTATE_CACHE, keySelector, data);
   };
-  function createMutatorStore(...args) {
-    const wrapMutator = (innerFn) => async (data) => {
-      var _a;
-      const settings = {
-        ...globalSettings,
-        fetcher: innerFn,
-        ...rewrittenSettings
-      };
-      try {
-        store.setKey("error", void 0);
-        store.setKey("loading", true);
-        await settings.fetcher(data);
-      } catch (error) {
-        (_a = settings.onError) == null ? void 0 : _a.call(settings, error);
-        store.setKey("error", error);
-      } finally {
-        store.setKey("loading", false);
-      }
-    };
-    let mutate;
-    if (Array.isArray(args[0])) {
-      const [keys, autoMutator] = args;
-      mutate = wrapMutator(async (data) => {
-        await autoMutator(data);
-        invalidateKeys(keys);
-      });
-    } else {
-      const [manualMutator] = args;
-      mutate = wrapMutator(async (data) => {
+  function createMutatorStore(mutator) {
+    const store = map({
+      mutate: async (data) => {
+        var _a, _b;
+        const newMutator = (_a = rewrittenSettings.fetcher) != null ? _a : mutator;
         const keysToInvalidate = [];
         try {
-          await manualMutator({
+          store.set({
+            error: void 0,
+            loading: true,
+            data: void 0,
+            mutate: store.get().mutate
+          });
+          const result = await newMutator({
             data,
-            invalidate: (keys) => {
-              keysToInvalidate.push(...Array.isArray(keys) ? keys : [keys]);
+            invalidate: (key) => {
+              keysToInvalidate.push(key);
             },
             getCacheUpdater: (key, shouldInvalidate = true) => [
               (newVal) => {
@@ -226,12 +192,17 @@ const nanofetch = ({
               cache.get(key)
             ]
           });
+          store.setKey("data", result);
+        } catch (error) {
+          (_b = globalSettings == null ? void 0 : globalSettings.onError) == null ? void 0 : _b.call(globalSettings, error);
+          store.setKey("error", error);
         } finally {
+          store.setKey("loading", false);
           invalidateKeys(keysToInvalidate);
         }
-      });
-    }
-    const store = map({ mutate, loading: false });
+      },
+      loading: false
+    });
     return store;
   }
   const __unsafeOverruleSettings = (data) => {
@@ -249,9 +220,12 @@ const nanofetch = ({
   ];
 };
 const getKeyStore = (keys) => {
+  if (typeof keys === "string")
+    return [atom([keys, [keys]]), () => {
+    }];
   let keyStore = atom(null), keyParts = [];
   const setKeyStoreValue = () => {
-    if (keyParts.some((v) => v === null)) {
+    if (keyParts.some((v) => v === null || v === void 0)) {
       keyStore.set(null);
     } else {
       keyStore.set([keyParts.join(""), keyParts]);

@@ -3,7 +3,9 @@ import { createNanoEvents } from "nanoevents";
 
 type Fn = () => void;
 
-export type KeyInput = Array<string | ReadableAtom<string | null>>;
+export type KeyInput =
+  | string
+  | Array<string | ReadableAtom<string | null | undefined>>;
 
 type Key = string;
 type KeyParts = string[];
@@ -39,17 +41,17 @@ export type FetcherStoreCreator<T = any, E = Error> = (
   settings?: CommonSettings<T>
 ) => FetcherStore<T, E>;
 
-export type AutoMutator<T = unknown> = (data: T) => Promise<unknown>;
-export type ManualMutator<T = unknown> = (args: {
-  data: T;
-  invalidate: (keys: Key | Key[]) => void;
+export type ManualMutator<Data = void, Result = unknown> = (args: {
+  data: Data;
+  invalidate: (key: Key) => void;
   getCacheUpdater: <T = unknown>(
     key: Key,
     shouldRevalidate?: boolean
   ) => [(newValue?: T) => void, T | undefined];
-}) => Promise<unknown>;
-export type MutatorStore<T = unknown, E = Error> = MapStore<{
-  mutate: (data: T) => Promise<void>;
+}) => Promise<Result>;
+export type MutatorStore<Data = void, Result = unknown, E = Error> = MapStore<{
+  mutate: (data: Data) => Promise<Result>;
+  data?: Result;
   loading?: boolean;
   error?: E;
 }>;
@@ -270,53 +272,26 @@ export const nanofetch = ({
     events.emit(MUTATE_CACHE, keySelector, data);
   };
 
-  function createMutatorStore<T = unknown, E = Error>(
-    keysToInvalidate: Key[],
-    mutator: AutoMutator<T>
-  ): MutatorStore<T, E>;
-  function createMutatorStore<T = unknown, E = Error>(
-    mutator: ManualMutator<T>
-  ): MutatorStore<T, E>;
-  function createMutatorStore<T = unknown, E = Error>(
-    ...args: [Key[], AutoMutator<T>] | [ManualMutator<T>]
-  ): MutatorStore<T, E> {
-    const wrapMutator =
-      (innerFn: (data: T) => Promise<unknown>) => async (data: T) => {
-        const settings = {
-          ...globalSettings,
-          fetcher: innerFn,
-          ...rewrittenSettings,
-        };
-        try {
-          store.setKey("error", void 0);
-          store.setKey("loading", true);
-          await (settings.fetcher as typeof innerFn)(data);
-        } catch (error) {
-          settings.onError?.(error);
-          store.setKey("error", error as E);
-        } finally {
-          store.setKey("loading", false);
-        }
-      };
-
-    let mutate: (data: T) => Promise<void>;
-
-    if (Array.isArray(args[0])) {
-      const [keys, autoMutator] = args;
-      mutate = wrapMutator(async (data) => {
-        await autoMutator!(data);
-        invalidateKeys(keys);
-      });
-    } else {
-      const [manualMutator] = args;
-      mutate = wrapMutator(async (data) => {
+  function createMutatorStore<Data = void, Result = unknown, E = any>(
+    mutator: ManualMutator<Data, Result>
+  ): MutatorStore<Data, Result, E> {
+    const store: MutatorStore<Data, Result, E> = map({
+      mutate: async (data) => {
+        const newMutator = (rewrittenSettings.fetcher ??
+          mutator) as ManualMutator<Data, Result>;
         const keysToInvalidate: Key[] = [];
         try {
-          await manualMutator({
+          store.set({
+            error: void 0,
+            loading: true,
+            data: void 0,
+            mutate: store.get().mutate,
+          });
+          const result = await newMutator({
             data,
-            invalidate: (keys: Key | Key[]) => {
+            invalidate: (key: Key) => {
               // We automatically postpone key invalidation up until mutator is run
-              keysToInvalidate.push(...(Array.isArray(keys) ? keys : [keys]));
+              keysToInvalidate.push(key);
             },
             getCacheUpdater: <T = unknown>(
               key: Key,
@@ -331,16 +306,20 @@ export const nanofetch = ({
               cache.get(key) as T | undefined,
             ],
           });
+          store.setKey("data", result as Result);
+        } catch (error) {
+          globalSettings?.onError?.(error);
+          store.setKey("error", error as E);
         } finally {
+          store.setKey("loading", false);
           // We do not catch it because it's caught in `wrapMutator`.
           // But we still invalidate all keys that were invalidated during running manual
           // mutator.
           invalidateKeys(keysToInvalidate);
         }
-      });
-    }
-
-    const store: MutatorStore<T, E> = map({ mutate, loading: false });
+      },
+      loading: false,
+    });
     return store;
   }
 
@@ -361,11 +340,14 @@ export const nanofetch = ({
 };
 
 const getKeyStore = (keys: KeyInput) => {
+  if (typeof keys === "string")
+    return [atom([keys, [keys] as string[]] as const), () => {}] as const;
+
   let keyStore = atom<[Key, KeyParts] | null>(null),
-    keyParts: Array<string | null> = [];
+    keyParts: Array<string | null | undefined> = [];
 
   const setKeyStoreValue = () => {
-    if (keyParts.some((v) => v === null)) {
+    if (keyParts.some((v) => v === null || v === void 0)) {
       keyStore.set(null);
     } else {
       keyStore.set([keyParts.join(""), keyParts as KeyParts]);

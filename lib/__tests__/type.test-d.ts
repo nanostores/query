@@ -1,4 +1,4 @@
-import { nanofetch, FetcherStore } from "../main";
+import { nanofetch } from "../main";
 
 const noop = () => null;
 
@@ -33,36 +33,38 @@ describe("types", () => {
     expectTypeOf(error).toEqualTypeOf<Err | undefined>();
   });
 
-  test("mutator accepts auto signature", () => {
+  test("mutator", () => {
     const [, createMutator] = nanofetch();
 
     type Data = { msg: string };
+    type Result = { res: number };
     type Error = { text: string };
-    const $mutate = createMutator<Data, Error>(["keys"], async (data) => {
-      expectTypeOf(data).toEqualTypeOf<Data>();
-    });
-    const { mutate, error } = $mutate.get();
-
-    expectTypeOf(mutate({ msg: "" })).resolves.toEqualTypeOf<void>();
-    expectTypeOf(error).toEqualTypeOf<Error | undefined>();
-  });
-
-  test("mutator accepts manual signature", () => {
-    const [, createMutator] = nanofetch();
-
-    type Data = { msg: string };
-    type Error = { text: string };
-    const $mutate = createMutator<Data, Error>(
+    const $mutate = createMutator<Data, Result, Error>(
       async ({ data, getCacheUpdater }) => {
         expectTypeOf(data).toEqualTypeOf<Data>();
         const [mutateCache, prevState] = getCacheUpdater("some-key");
         expectTypeOf(prevState).toEqualTypeOf<unknown>();
         expectTypeOf(mutateCache).parameter(0).toEqualTypeOf<unknown>();
+
+        return { res: 200 };
       }
     );
-    const { mutate, error } = $mutate.get();
+    const { mutate, error, data } = $mutate.get();
 
-    expectTypeOf(mutate({ msg: "" })).resolves.toEqualTypeOf<void>();
+    expectTypeOf(mutate({ msg: "" })).resolves.toEqualTypeOf<Result>();
     expectTypeOf(error).toEqualTypeOf<Error | undefined>();
+    expectTypeOf(data).toEqualTypeOf<Result | undefined>();
+  });
+
+  test("mutator accepts void data", () => {
+    const [, createMutator] = nanofetch();
+
+    const $mutate = createMutator(async ({ data }) => {
+      expectTypeOf(data).toEqualTypeOf<void>();
+      return { res: 200 };
+    });
+    const { mutate } = $mutate.get();
+
+    expectTypeOf(mutate()).resolves.toEqualTypeOf<{ res: number }>();
   });
 });
