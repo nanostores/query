@@ -11,8 +11,8 @@ export default defineConfig({
     minify: false,
     lib: {
       entry: resolve(__dirname, "lib/main.ts"),
-      name: "nanofetch",
-      fileName: "nanofetch",
+      name: "nanoquery",
+      fileName: "nanoquery",
     },
     rollupOptions: {
       external: ["nanostores", "nanoevents"],

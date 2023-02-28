@@ -1,5 +1,5 @@
 import { atom } from "nanostores";
-import { nanofetch } from "../main";
+import { nanoquery } from "../main";
 
 beforeAll(() => {
   vi.useFakeTimers();
@@ -23,7 +23,7 @@ describe.concurrent("fetcher tests", () => {
 
     const keys = ["/api", "/key"];
 
-    const [makeFetcher] = nanofetch();
+    const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, { fetcher });
     store.listen(noop);
     store.listen(noop);
@@ -37,7 +37,7 @@ describe.concurrent("fetcher tests", () => {
   test("works for string-based keys", async () => {
     const fetcher = vi.fn().mockImplementation(async () => true);
 
-    const [makeFetcher] = nanofetch();
+    const [makeFetcher] = nanoquery();
     const store = makeFetcher("/api/key", { fetcher });
     store.listen(noop);
     store.listen(noop);
@@ -54,7 +54,7 @@ describe.concurrent("fetcher tests", () => {
       .fn()
       .mockImplementationOnce(() => new Promise((r) => setTimeout(r, 10)));
 
-    const [makeFetcher] = nanofetch();
+    const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, { fetcher });
     store.listen(noop);
 
@@ -69,7 +69,7 @@ describe.concurrent("fetcher tests", () => {
       .fn()
       .mockImplementationOnce(() => new Promise((_, r) => r("err")));
 
-    const [makeFetcher] = nanofetch();
+    const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, { fetcher });
     store.listen(noop);
 
@@ -86,7 +86,7 @@ describe.concurrent("fetcher tests", () => {
         () => new Promise((r) => setTimeout(() => r("yo"), 10))
       );
 
-    const [makeFetcher] = nanofetch();
+    const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, { fetcher });
     store.listen(noop);
 
@@ -110,7 +110,7 @@ describe.concurrent("fetcher tests", () => {
           new Promise((r) => setTimeout(() => r(res[keys[2]]), 10))
       );
 
-    const [makeFetcher] = nanofetch();
+    const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, { fetcher });
 
     store.listen(noop);
@@ -138,7 +138,7 @@ describe.concurrent("fetcher tests", () => {
       .fn()
       .mockImplementation(() => new Promise((r) => r("data")));
 
-    const [makeFetcher] = nanofetch();
+    const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, { fetcher, dedupeTime: 20 });
     {
       const unsub = store.listen(noop);
@@ -170,7 +170,7 @@ describe.concurrent("fetcher tests", () => {
       .fn()
       .mockImplementation(() => new Promise((r) => r("data")));
 
-    const [makeFetcher] = nanofetch();
+    const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, { fetcher });
     store.listen(noop);
 
@@ -190,7 +190,7 @@ describe.concurrent("fetcher tests", () => {
       .fn()
       .mockImplementation(() => new Promise((r) => r(null)));
 
-    const [makeFetcher, , { __unsafeOverruleSettings }] = nanofetch();
+    const [makeFetcher, , { __unsafeOverruleSettings }] = nanoquery();
     const store = makeFetcher(keys, { fetcher: fetcher1 });
     __unsafeOverruleSettings({ fetcher: fetcher2 });
     store.listen(noop);
@@ -220,7 +220,7 @@ describe.concurrent("fetcher tests", () => {
         )
     );
 
-    const [makeFetcher] = nanofetch();
+    const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, { fetcher, dedupeTime: 0 });
     store.listen(noop);
 
@@ -250,7 +250,7 @@ describe.concurrent("fetcher tests", () => {
       .fn()
       .mockImplementation(() => new Promise((r) => r(null)));
 
-    const [makeFetcher] = nanofetch();
+    const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, {
       fetcher,
       dedupeTime: 0,
@@ -287,7 +287,7 @@ describe.concurrent("fetcher tests", () => {
       return { counter: i };
     });
 
-    const [makeFetcher] = nanofetch();
+    const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, { fetcher });
     store.listen(noop);
 
@@ -321,7 +321,7 @@ describe.concurrent("fetcher tests", () => {
       }
     });
 
-    const [makeFetcher] = nanofetch();
+    const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, { fetcher, dedupeTime: 0 });
     store.listen(noop);
 
@@ -345,7 +345,7 @@ describe.concurrent("fetcher tests", () => {
 
     const onErrorContext = vi.fn();
 
-    const [makeFetcher] = nanofetch({ onError: onErrorContext });
+    const [makeFetcher] = nanoquery({ onError: onErrorContext });
     {
       const store = makeFetcher(keys, { fetcher, dedupeTime: 0 });
       store.listen(noop);
@@ -373,7 +373,7 @@ describe("refetch logic", () => {
     let count = 0;
     const fetcher = vi.fn().mockImplementation(async () => count++);
 
-    const [makeFetcher] = nanofetch();
+    const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, {
       fetcher,
       refetchOnReconnect: true,
@@ -399,7 +399,7 @@ describe("refetch logic", () => {
     let count = 0;
     const fetcher = vi.fn().mockImplementation(async () => count++);
 
-    const [makeFetcher] = nanofetch();
+    const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, {
       fetcher,
       refetchInterval: 5,
@@ -430,7 +430,7 @@ describe("refetch logic", () => {
     let data = {};
     const fetcher = vi.fn().mockImplementation(async () => data);
 
-    const [makeFetcher] = nanofetch();
+    const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, {
       fetcher,
       refetchOnFocus: true,
@@ -456,7 +456,7 @@ describe("refetch logic", () => {
 describe.concurrent("mutator tests", () => {
   describe.concurrent("mutator", () => {
     test("correct transitions", async () => {
-      const [, makeMutator] = nanofetch();
+      const [, makeMutator] = nanoquery();
       const $mutate = makeMutator<void, string>(async () => "hey");
       $mutate.listen(noop);
 
@@ -480,7 +480,7 @@ describe.concurrent("mutator tests", () => {
       const keyParts = ["/api", "/key"],
         keyParts2 = ["/api", "/key2"];
 
-      const [makeFetcher, makeMutator] = nanofetch();
+      const [makeFetcher, makeMutator] = nanoquery();
       const $data = makeFetcher(keyParts, { fetcher, dedupeTime: 2e20 });
       const $data2 = makeFetcher(keyParts2, {
         fetcher: fetcher2,
@@ -521,7 +521,7 @@ describe.concurrent("mutator tests", () => {
 
       const keyParts = ["/api", "/key"];
 
-      const [makeFetcher, makeMutator] = nanofetch();
+      const [makeFetcher, makeMutator] = nanoquery();
       const store = makeFetcher(keyParts, { fetcher, dedupeTime: 2e20 });
       store.listen(noop);
 
@@ -558,7 +558,7 @@ describe.concurrent("mutator tests", () => {
 
       const onErrorContext = vi.fn();
 
-      const [, makeMutator] = nanofetch({ onError: onErrorContext });
+      const [, makeMutator] = nanoquery({ onError: onErrorContext });
       const store = makeMutator(fetcher);
       store.listen(noop);
 
@@ -577,7 +577,7 @@ describe.concurrent("mutator tests", () => {
 
     const keyParts = ["/api", "/key"];
 
-    const [makeFetcher, makeMutator] = nanofetch();
+    const [makeFetcher, makeMutator] = nanoquery();
     const store = makeFetcher(keyParts, { fetcher, dedupeTime: 2e20 });
     store.listen(noop);
 
@@ -612,7 +612,7 @@ describe.concurrent("mutator tests", () => {
     const fetcher1 = vi.fn().mockImplementation(async () => null);
     const fetcher2 = vi.fn().mockImplementation(async () => null);
 
-    const [, makeMutator, { __unsafeOverruleSettings }] = nanofetch();
+    const [, makeMutator, { __unsafeOverruleSettings }] = nanoquery();
     const $mutate = makeMutator(fetcher1);
     __unsafeOverruleSettings({ fetcher: fetcher2 });
 
@@ -632,7 +632,7 @@ describe.concurrent("global invalidator and mutator", () => {
 
     const keys = ["/api", "/key"];
 
-    const [makeFetcher, , { invalidateKeys }] = nanofetch();
+    const [makeFetcher, , { invalidateKeys }] = nanoquery();
     const store = makeFetcher(keys, { fetcher });
     store.listen(noop);
 
@@ -659,7 +659,7 @@ describe.concurrent("global invalidator and mutator", () => {
 
     const keys = ["/api", "/key"];
 
-    const [makeFetcher, , { mutateCache }] = nanofetch();
+    const [makeFetcher, , { mutateCache }] = nanoquery();
     const store = makeFetcher(keys, { fetcher });
     store.listen(noop);
 
@@ -691,7 +691,7 @@ describe.concurrent("global invalidator and mutator", () => {
 
     const keys = ["/api", "/key"];
 
-    const [makeFetcher, , { mutateCache }] = nanofetch({ dedupeTime: 2e20 });
+    const [makeFetcher, , { mutateCache }] = nanoquery({ dedupeTime: 2e20 });
     const store = makeFetcher(keys, { fetcher });
     store.listen(noop);
 

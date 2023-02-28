@@ -16,7 +16,7 @@ declare type RefetchSettings = {
 declare type CommonSettings<T = unknown> = {
     fetcher?: Fetcher<T>;
 } & RefetchSettings & EventTypes;
-declare type NanofetchArgs = {
+declare type NanoqueryArgs = {
     cache?: Map<Key, any>;
 } & CommonSettings;
 export declare type FetcherValue<T = any, E = Error> = {
@@ -37,7 +37,7 @@ export declare type MutatorStore<Data = void, Result = unknown, E = Error> = Map
     loading?: boolean;
     error?: E;
 }>;
-export declare const nanofetch: ({ cache, fetcher, ...globalSettings }?: NanofetchArgs) => readonly [<T = unknown, E = any>(keyInput: KeyInput, { fetcher, ...fetcherSettings }?: CommonSettings<T>) => FetcherStore<T, E>, <Data = void, Result = unknown, E_1 = any>(mutator: ManualMutator<Data, Result>) => MutatorStore<Data, Result, E_1>, {
+export declare const nanoquery: ({ cache, fetcher, ...globalSettings }?: NanoqueryArgs) => readonly [<T = unknown, E = any>(keyInput: KeyInput, { fetcher, ...fetcherSettings }?: CommonSettings<T>) => FetcherStore<T, E>, <Data = void, Result = unknown, E_1 = any>(mutator: ManualMutator<Data, Result>) => MutatorStore<Data, Result, E_1>, {
     readonly __unsafeOverruleSettings: (data: CommonSettings) => void;
     readonly invalidateKeys: (keySelector: KeySelector) => void;
     readonly mutateCache: (keySelector: KeySelector, data?: unknown) => void;

@@ -1,17 +1,17 @@
-# Nano Stores Fetcher
+# Nano Stores Query
 
 <img align="right" width="92" height="92" title="Nano Stores logo"
      src="https://nanostores.github.io/nanostores/logo.svg">
 
 A data fetcher for [Nano Stores](https://github.com/nanostores/nanostores).
 
-- **Small**. 1.66 Kb (minified and gzipped).
+- **Small**. 1.65 Kb (minified and gzipped).
 - **Familiar DX**. If you've used [`swr`](https://swr.vercel.app/) or
-[`react-query`](https://react-query-v3.tanstack.com/), you already know how nanofetch
+[`react-query`](https://react-query-v3.tanstack.com/), you already know how nanoquery
 works.
 - **Built-in cache**. `stale-while-revalidate` caching from 
 [HTTP RFC 5861](https://tools.ietf.org/html/rfc5861). User rarely sees unnecessary
-loaders.
+loaders or stale data.
 - **Revalidate cache**. Automaticallty revalidate on interval, refocus, network 
 recovery. Or just revalidate it manually.
 - **Nano Stores first**. Finally, fetching logic *outside* of components. Plays nicely
@@ -19,7 +19,23 @@ with [store events](https://github.com/nanostores/nanostores#store-events),
 [computed stores](https://github.com/nanostores/nanostores#computed-stores),
 [router](https://github.com/nanostores/router), and the rest.
 
----
+<a href="https://evilmartians.com/?utm_source=nanostores-query">
+  <img src="https://evilmartians.com/badges/sponsored-by-evil-martians.svg"
+       alt="Sponsored by Evil Martians" width="236" height="54">
+</a>
+
+## Install
+
+```sh
+npm install nanostores @nanostores/query
+```
+
+## Usage
+
+See [Nano Stores docs](https://github.com/nanostores/nanostores#guide)
+about using the store and subscribing to store’s changes in UI frameworks.
+
+### Query
 
 First, we define the context. It allows us to share the default fetcher
 implementation between all fetcher stores, refetching settings, and allows for
@@ -27,9 +43,9 @@ simple mocking in tests and stories.
 
 ```ts
 // store/fetcher.ts
-import { nanofetch } from '@nanostores/nanofetch';
+import { nanoquery } from '@nanostores/query';
 
-export const [createFetcherStore, createMutatorStore] = nanofetch({
+export const [createFetcherStore, createMutatorStore] = nanoquery({
   fetcher: (...keys: string[]) => fetch(keys.join('')).then((r) => r.json()),
 });
 ```
@@ -70,12 +86,13 @@ export const $currentPost = createFetcherStore<Post>(['/api/post/', $currentPost
 It accepts two arguments: **key** and **fetcher options**.
 
 ```ts
-type KeyParts = Array<ReadableAtom<string | null> | string>
+type KeyParts = undefined | Array<ReadableAtom<string | null | undefined> | string>
 ```
 
-Under the hood, nanofetcher will get the string values and pass them to your fetcher
-like this: `fetcher(...keyPartsAsStrings)`. If any atom value is `null`, we never call
-the fetcher—this is the conditional fetching technique we have.
+Under the hood, nanoquery will get the string values and pass them to your fetcher
+like this: `fetcher(...keyPartsAsStrings)`. If any atom value is either `null` or
+`undefined`, we never call the fetcher—this is the conditional fetching technique we
+have.
 
 ```ts
 type Options = {
@@ -101,41 +118,35 @@ The same options can be set on the context level where you actually get the
 
 ## `createMutatorStore`
 
-Mutator basically allows for 2 main things: tell nanofetch **what data should be
-revalidated** and **optimistically change data**. Two things = two simple interfaces.
+Mutator basically allows for 2 main things: tell nanoquery **what data should be
+revalidated** and **optimistically change data**. From interface point of view it's
+essentially a wrapper around your async function with some added functions.
 
-**Auto mutator** should be used when you know **ahead of time** what keys need to be 
-revalidated. Notice, that we use the *keys* here, so it's *concatenated key parts*.
-One auto mutator can revalidate many keys.
+It gets an object with 3 arguments:
 
-```ts
-export const $addComment = createMutatorStore<Comment>(
-  ["/api/posts", "/api/mainPage"],
-  async (comment) => {
-    // Send POST request
-  }
-);
-```
-
-**Manual mutator** should be used when the keys you want to revalidate are either
-data-dependant, or you want to optimistically update the UI.
+- `data` is the data you pass to the `mutate` function;
+- `invalidate` allows you to mark other keys as stale so they are refetched next time;
+- `getCacheUpdater` allows you to get current cache value by key and update it with
+a new value. The key is also invalidated by default.
 
 ```ts
 export const $addComment = createMutatorStore<Comment>(
   async ({ data: comment, invalidate, getCacheUpdater }) => {
-    // Dynamic invalidation key
+    // You can either invalidate the author…
     invalidate(`/api/users/${comment.authorId}`);
 
-    // Get previous cache state by key and update it optimistically
+    // …or you can optimistically update current cache.
     const [updateCache, post] = getCacheUpdater(`/api/post/${comment.postId}`);
     updateCache({ ...post, comments: [...post.comments, comment] });
 
-    // …and send POST request
+    // Even though `fetch` is called after calling `invalidate`, we will only
+    // invalidate the keys after `fetch` resolves
+    return fetch('…')
   }
 );
 ```
 
-The usage is very simple as well:
+The usage in component is very simple as well:
 
 ```tsx
 const AddCommentForm = () => {
@@ -145,7 +156,7 @@ const AddCommentForm = () => {
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        mutate({ postId: "", text: "" });
+        mutate({ postId: "…", text: "…" });
       }}
     >
       <button disabled={loading}>Send comment</button>
@@ -154,21 +165,3 @@ const AddCommentForm = () => {
   );
 };
 ```
-
-### To Do
-
-- installation instructions
-- recipes for popular things: 
-  - creating reactive chains (from one store to another)
-  - router integration
-  - pagination + infinite scroll
-  - tests, stories
-  - SSR, next/nuxt usage
-
-### Roadmap
-
-Ideas for future:
-
-1. get some ideas from [swr](https://swr.vercel.app/docs/api#options) and
-[tanstack-query](https://react-query-v3.tanstack.com/)
-2. events (global and isolated to a single store)

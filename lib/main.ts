@@ -25,7 +25,7 @@ type CommonSettings<T = unknown> = {
 } & RefetchSettings &
   EventTypes;
 
-type NanofetchArgs = {
+type NanoqueryArgs = {
   cache?: Map<Key, any>;
 } & CommonSettings;
 
@@ -56,11 +56,11 @@ export type MutatorStore<Data = void, Result = unknown, E = Error> = MapStore<{
   error?: E;
 }>;
 
-export const nanofetch = ({
+export const nanoquery = ({
   cache = new Map(),
   fetcher: globalFetcher,
   ...globalSettings
-}: NanofetchArgs = {}) => {
+}: NanoqueryArgs = {}) => {
   const events = createNanoEvents<Events>();
   let focus = true;
   subscribe("focus", () => {

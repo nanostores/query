@@ -1,4 +1,4 @@
-import { nanofetch } from "../main";
+import { nanoquery } from "../main";
 
 const noop = () => null;
 
@@ -6,7 +6,7 @@ describe("types", () => {
   test(`specific fetcher overrides common fetcher's type`, () => {
     const emptyPromise = () => new Promise<null>(noop);
 
-    const [createFetcher] = nanofetch({
+    const [createFetcher] = nanoquery({
       fetcher: emptyPromise,
     });
     type Res = { data: string };
@@ -23,7 +23,7 @@ describe("types", () => {
   });
 
   test("setting error type", () => {
-    const [createFetcher] = nanofetch();
+    const [createFetcher] = nanoquery();
 
     type Err = { msg: string };
     const $manual = createFetcher<null, Err>([""], {
@@ -34,7 +34,7 @@ describe("types", () => {
   });
 
   test("mutator", () => {
-    const [, createMutator] = nanofetch();
+    const [, createMutator] = nanoquery();
 
     type Data = { msg: string };
     type Result = { res: number };
@@ -57,7 +57,7 @@ describe("types", () => {
   });
 
   test("mutator accepts void data", () => {
-    const [, createMutator] = nanofetch();
+    const [, createMutator] = nanoquery();
 
     const $mutate = createMutator(async ({ data }) => {
       expectTypeOf(data).toEqualTypeOf<void>();

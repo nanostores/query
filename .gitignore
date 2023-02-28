@@ -118,3 +118,4 @@ build/
 .env.*
 
 .vscode/
+dist/

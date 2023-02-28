@@ -1,7 +1,7 @@
 pre-commit:
   commands:
     build:
-      run: pnpm testrun && pnpm check && pnpm build && git add dist/*
+      run: pnpm testrun && pnpm check
 
 post-merge: &post-merge
   commands:

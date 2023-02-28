@@ -1,27 +1,38 @@
 {
-  "name": "nanofetch",
+  "name": "@nanostores/query",
   "version": "0.0.1",
-  "description": "",
+  "description": "Tiny remote data fetching library for Nano Stores",
   "scripts": {
     "build": "vite build",
     "check": "tsc --noEmit && vitest typecheck --run",
     "test": "vitest",
     "testrun": "vitest run"
   },
-  "keywords": [],
-  "author": "Dan Kozlov <dkzlv@pm.me>",
+  "keywords": [
+    "nano",
+    "react",
+    "preact",
+    "vue",
+    "svelte",
+    "store",
+    "request",
+    "cache",
+    "fetch"
+  ],
+  "author": "Dan Kozlov <d.kzlv.ru@gmail.com>",
   "license": "MIT",
   "type": "module",
+  "sideEffects": false,
   "files": [
     "dist"
   ],
-  "main": "./dist/nanofetch.umd.cjs",
-  "module": "./dist/nanofetch.js",
+  "main": "./dist/nanoquery.umd.cjs",
+  "module": "./dist/nanoquery.js",
   "types": "./dist/main.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/nanofetch.js",
-      "require": "./dist/nanofetch.umd.cjs"
+      "import": "./dist/nanoquery.js",
+      "require": "./dist/nanoquery.umd.cjs"
     }
   },
   "dependencies": {
@@ -40,7 +51,17 @@
     "nanostores": "^0.7.0"
   },
   "engines": {
-    "pnpm": "7",
-    "node": "18"
-  }
+    "node": "^14.0.0 || ^16.0.0 || >=18.0.0"
+  },
+  "directories": {
+    "lib": "dist"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nanostores/query.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nanostores/query/issues"
+  },
+  "homepage": "https://github.com/nanostores/query#readme"
 }
