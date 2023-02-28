@@ -462,7 +462,7 @@ describe.concurrent("mutator tests", () => {
 
       const { mutate } = $mutate.get();
       expect($mutate.get().loading).toBeFalsy();
-      const pr = mutate(void 0);
+      const pr = mutate();
       expect($mutate.get().loading).toBeTruthy();
       await advance();
       expect($mutate.get().loading).toBeFalsy();

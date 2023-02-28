@@ -49,8 +49,11 @@ export type ManualMutator<Data = void, Result = unknown> = (args: {
     shouldRevalidate?: boolean
   ) => [(newValue?: T) => void, T | undefined];
 }) => Promise<Result>;
+type MutateCb<Data> = Data extends void
+  ? () => Promise<unknown>
+  : (data: Data) => Promise<unknown>;
 export type MutatorStore<Data = void, Result = unknown, E = Error> = MapStore<{
-  mutate: (data: Data) => Promise<Result>;
+  mutate: MutateCb<Data>;
   data?: Result;
   loading?: boolean;
   error?: E;
@@ -275,49 +278,48 @@ export const nanoquery = ({
   function createMutatorStore<Data = void, Result = unknown, E = any>(
     mutator: ManualMutator<Data, Result>
   ): MutatorStore<Data, Result, E> {
-    const store: MutatorStore<Data, Result, E> = map({
-      mutate: async (data) => {
-        const newMutator = (rewrittenSettings.fetcher ??
-          mutator) as ManualMutator<Data, Result>;
-        const keysToInvalidate: Key[] = [];
-        try {
-          store.set({
-            error: void 0,
-            loading: true,
-            data: void 0,
-            mutate: store.get().mutate,
-          });
-          const result = await newMutator({
-            data,
-            invalidate: (key: Key) => {
-              // We automatically postpone key invalidation up until mutator is run
-              keysToInvalidate.push(key);
+    const mutate = async (data: Data) => {
+      const newMutator = (rewrittenSettings.fetcher ??
+        mutator) as ManualMutator<Data, Result>;
+      const keysToInvalidate: Key[] = [];
+      try {
+        store.set({
+          error: void 0,
+          loading: true,
+          data: void 0,
+          mutate: store.get().mutate,
+        });
+        const result = await newMutator({
+          data,
+          invalidate: (key: Key) => {
+            // We automatically postpone key invalidation up until mutator is run
+            keysToInvalidate.push(key);
+          },
+          getCacheUpdater: <T = unknown>(key: Key, shouldInvalidate = true) => [
+            (newVal?: T) => {
+              mutateCache(key, newVal);
+              if (shouldInvalidate) {
+                keysToInvalidate.push(key);
+              }
             },
-            getCacheUpdater: <T = unknown>(
-              key: Key,
-              shouldInvalidate = true
-            ) => [
-              (newVal?: T) => {
-                mutateCache(key, newVal);
-                if (shouldInvalidate) {
-                  keysToInvalidate.push(key);
-                }
-              },
-              cache.get(key) as T | undefined,
-            ],
-          });
-          store.setKey("data", result as Result);
-        } catch (error) {
-          globalSettings?.onError?.(error);
-          store.setKey("error", error as E);
-        } finally {
-          store.setKey("loading", false);
-          // We do not catch it because it's caught in `wrapMutator`.
-          // But we still invalidate all keys that were invalidated during running manual
-          // mutator.
-          invalidateKeys(keysToInvalidate);
-        }
-      },
+            cache.get(key) as T | undefined,
+          ],
+        });
+        store.setKey("data", result as Result);
+        return result;
+      } catch (error) {
+        globalSettings?.onError?.(error);
+        store.setKey("error", error as E);
+      } finally {
+        store.setKey("loading", false);
+        // We do not catch it because it's caught in `wrapMutator`.
+        // But we still invalidate all keys that were invalidated during running manual
+        // mutator.
+        invalidateKeys(keysToInvalidate);
+      }
+    };
+    const store: MutatorStore<Data, Result, E> = map({
+      mutate: mutate as MutateCb<Data>,
       loading: false,
     });
     return store;

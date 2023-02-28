@@ -51,7 +51,7 @@ describe("types", () => {
     );
     const { mutate, error, data } = $mutate.get();
 
-    expectTypeOf(mutate({ msg: "" })).resolves.toEqualTypeOf<Result>();
+    mutate({ msg: "" });
     expectTypeOf(error).toEqualTypeOf<Error | undefined>();
     expectTypeOf(data).toEqualTypeOf<Result | undefined>();
   });
@@ -64,7 +64,9 @@ describe("types", () => {
       return { res: 200 };
     });
     const { mutate } = $mutate.get();
-
-    expectTypeOf(mutate()).resolves.toEqualTypeOf<{ res: number }>();
+    // Checking if you can pass function directly, e.g. in event handlers
+    const fn = (_: (arg: string) => any) => {};
+    fn(mutate);
+    mutate();
   });
 });
