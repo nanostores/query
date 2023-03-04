@@ -3,12 +3,12 @@
 <img align="right" width="92" height="92" title="Nano Stores logo"
      src="https://nanostores.github.io/nanostores/logo.svg">
 
-A data fetcher for [Nano Stores](https://github.com/nanostores/nanostores).
+A tiny data fetcher for [Nano Stores](https://github.com/nanostores/nanostores).
 
 - **Small**. 1.65 Kb (minified and gzipped).
 - **Familiar DX**. If you've used [`swr`](https://swr.vercel.app/) or
-[`react-query`](https://react-query-v3.tanstack.com/), you already know how nanoquery
-works.
+[`react-query`](https://react-query-v3.tanstack.com/), you'll get the same treatment,
+but for 10-20% of the size.
 - **Built-in cache**. `stale-while-revalidate` caching from 
 [HTTP RFC 5861](https://tools.ietf.org/html/rfc5861). User rarely sees unnecessary
 loaders or stale data.
@@ -18,6 +18,8 @@ recovery. Or just revalidate it manually.
 with [store events](https://github.com/nanostores/nanostores#store-events),
 [computed stores](https://github.com/nanostores/nanostores#computed-stores),
 [router](https://github.com/nanostores/router), and the rest.
+- **Transport agnostic**. Use GraphQL, REST codegen, plain fetch or anything,
+that returns Promises.
 
 <a href="https://evilmartians.com/?utm_source=nanostores-query">
   <img src="https://evilmartians.com/badges/sponsored-by-evil-martians.svg"
