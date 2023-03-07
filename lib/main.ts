@@ -35,7 +35,9 @@ export type FetcherValue<T = any, E = Error> = {
   loading: boolean;
 };
 
-export type FetcherStore<T = any, E = any> = MapStore<FetcherValue<T, E>>;
+export type FetcherStore<T = any, E = any> = MapStore<FetcherValue<T, E>> & {
+  key?: string;
+};
 export type FetcherStoreCreator<T = any, E = Error> = (
   keys: KeyInput,
   settings?: CommonSettings<T>
@@ -184,14 +186,15 @@ export const nanoquery = ({
     onStart(fetcherStore, () => {
       const firstRun = !keysInternalUnsub;
       [keyStore, keysInternalUnsub] = getKeyStore(keyInput);
-      keyUnsub = keyStore.listen((currentKeys) => {
+      keyUnsub = keyStore.subscribe((currentKeys) => {
         if (currentKeys) {
           const [newKey, keyParts] = currentKeys;
+          fetcherStore.key = newKey;
           runFetcher([newKey, keyParts], fetcherStore, settings);
           prevKey = newKey;
           prevKeyParts = keyParts;
         } else {
-          prevKey = prevKeyParts = void 0;
+          fetcherStore.key = prevKey = prevKeyParts = void 0;
         }
       });
 
@@ -365,9 +368,8 @@ const getKeyStore = (keys: KeyInput) => {
       keyParts.push(key);
       continue;
     }
-    keyParts.push(key.get());
     unsubs.push(
-      key.listen((newValue) => {
+      key.subscribe((newValue) => {
         keyParts[i] = newValue;
         setKeyStoreValue();
       })

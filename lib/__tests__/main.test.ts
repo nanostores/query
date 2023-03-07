@@ -114,19 +114,22 @@ describe.concurrent("fetcher tests", () => {
     const store = makeFetcher(keys, { fetcher });
 
     store.listen(noop);
-    await advance();
+    expect(store.key).toBe("/api/key/id1");
 
+    await advance();
     expect(store.get()).toEqual({ loading: true });
     await advance(20);
     expect(store.get()).toEqual({ data: "id1Value", loading: false });
 
     $id.set("id2");
+    expect(store.key).toBe("/api/key/id2");
     await advance();
     expect(store.get()).toEqual({ loading: true });
     await advance(20);
-    expect(store.get()).toEqual({ data: "id2Value", loading: false });
 
+    expect(store.get()).toEqual({ data: "id2Value", loading: false });
     $id.set("id1");
+    expect(store.key).toBe("/api/key/id1");
     await advance();
     expect(store.get()).toEqual({ data: "id1Value", loading: false });
   });
