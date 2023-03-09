@@ -118,7 +118,7 @@ export const nanoquery = ({
       tick().then(() => {
         const cached = cache.get(key);
         // Prevent exessive store updates
-        if (store.get().data !== cached)
+        if ((store as unknown as { value: any }).value.data !== cached)
           set(cached ? { data: cached, loading: false } : loading);
       });
       await tick();
@@ -181,7 +181,7 @@ export const nanoquery = ({
       keyUnsub: Fn,
       keyStore: ReturnType<typeof getKeyStore>[0];
 
-    const evtUnsubs: Fn[] = [];
+    let evtUnsubs: Fn[] = [];
 
     onStart(fetcherStore, () => {
       const firstRun = !keysInternalUnsub;
@@ -263,6 +263,7 @@ export const nanoquery = ({
     onStop(fetcherStore, () => {
       keysInternalUnsub?.();
       evtUnsubs.forEach((fn) => fn());
+      evtUnsubs = [];
       keyUnsub?.();
       const int = _refetchOnInterval.get(keyInput);
       if (int) clearInterval(int);
@@ -290,7 +291,7 @@ export const nanoquery = ({
           error: void 0,
           loading: true,
           data: void 0,
-          mutate: store.get().mutate,
+          mutate: mutate as MutateCb<Data>,
         });
         const result = await newMutator({
           data,
