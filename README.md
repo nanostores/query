@@ -167,3 +167,29 @@ const AddCommentForm = () => {
   );
 };
 ```
+
+## Recipes
+
+### Local state and Pagination
+
+All examples above use module-scoped stores, therefore they can only have a single
+data point stored. But what if you need, say, a store that fetches data based on
+component state? Nano Stores do not limit you in any way, you can easily achieve
+this by creating a store instance limited to a single component:
+
+```tsx
+const createStore = (id: string) => () =>
+  createFetcherStore<{ avatarUrl: string }>(`/api/user/${id}`);
+
+const UserAvatar: FC<{ id: string }> = ({ id }) => {
+  const [$user] = useState(createStore(id));
+
+  const { data } = useStore($user);
+  if (!data) return null;
+
+  return <img src={data.avatarUrl} />;
+};
+```
+
+This way you can leverage all nanoquery features, like cache or refetching, but
+not give up the flexibility of component-level data fetching.
