@@ -19,14 +19,6 @@ export default defineConfig({
     },
   },
   plugins: [
-    {
-      ...strip({
-        include: ["**/*.(ts|js)"],
-        // Intentionally leave out console.warn here
-        functions: ["console.log"],
-      }),
-      apply: "build",
-    },
     dts(),
   ],
 });

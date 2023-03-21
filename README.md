@@ -6,9 +6,6 @@
 A tiny data fetcher for [Nano Stores](https://github.com/nanostores/nanostores).
 
 - **Small**. 1.65 Kb (minified and gzipped).
-- **Familiar DX**. If you've used [`swr`](https://swr.vercel.app/) or
-[`react-query`](https://react-query-v3.tanstack.com/), you'll get the same treatment,
-but for 10-20% of the size.
 - **Built-in cache**. `stale-while-revalidate` caching from 
 [HTTP RFC 5861](https://tools.ietf.org/html/rfc5861). User rarely sees unnecessary
 loaders or stale data.

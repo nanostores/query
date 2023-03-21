@@ -140,21 +140,6 @@ export const nanoquery = ({
     _runningFetches.add(key);
 
     setKey("loading", true);
-
-    try {
-      console.log("running fetcher", key);
-      const res = await fetcher!(...keyParts);
-      cache.set(key, res);
-      set({ data: res, loading: false });
-      _lastFetch.set(key, getNow());
-    } catch (error: any) {
-      // Possibly preserving previous cache
-      settings.onError?.(error);
-      setKey("error", error);
-      setKey("loading", false);
-    } finally {
-      _runningFetches.delete(key);
-    }
   };
 
   const createFetcherStore = <T = unknown, E = any>(

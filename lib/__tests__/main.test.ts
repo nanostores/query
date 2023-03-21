@@ -27,7 +27,6 @@ describe.concurrent("fetcher tests", () => {
     const store = makeFetcher(keys, { fetcher });
     store.listen(noop);
     store.listen(noop);
-    store.listen(noop);
 
     await advance(10);
     expect(fetcher).toHaveBeenCalledOnce();
