@@ -48,6 +48,26 @@ describe.concurrent("fetcher tests", () => {
     expect(fetcher).toHaveBeenCalledWith("/api/key");
   });
 
+  test("values are shared between stores with same keys", async () => {
+    const fetcher = vi.fn().mockImplementation(async () => true);
+
+    const keys = ["/api", "/key"];
+
+    const [makeFetcher] = nanoquery({ fetcher });
+    const store1 = makeFetcher(keys, { fetcher }),
+      store2 = makeFetcher(keys);
+
+    store1.listen(noop);
+    store2.listen(noop);
+
+    await advance(10);
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(fetcher).toHaveBeenCalledWith(...keys);
+
+    expect(store1.get().data).toBe(true);
+    expect(store2.get().data).toBe(true);
+  });
+
   test("propagates loading state", async () => {
     const keys = ["/api", "/key"];
     const fetcher = vi
@@ -447,7 +467,7 @@ describe("refetch logic", () => {
     await advance();
     expect(store.get()).toEqual({ data: {}, loading: false });
     expect(listener).toHaveBeenCalledTimes(1);
-    // Forcing the
+    // Forcing lots of events
     for (let i = 0; i < 10; i++) {
       dispatchEvent(new Event("focus"));
       await advance(200);

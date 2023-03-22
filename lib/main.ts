@@ -2,6 +2,7 @@ import { atom, map, MapStore, onStart, onStop, ReadableAtom } from "nanostores";
 import { createNanoEvents } from "nanoevents";
 
 type Fn = () => void;
+type StoreWithValue = { value: any };
 
 export type KeyInput =
   | string
@@ -95,6 +96,7 @@ export const nanoquery = ({
         if (isKeyStillSame()) {
           console.log(`setting to ${v}`);
           store.set(v);
+          events.emit(SET_KEY, key, v);
         }
       },
       setKey = <K extends keyof FetcherValue>(k: K, v: FetcherValue[K]) => {
@@ -118,7 +120,7 @@ export const nanoquery = ({
       tick().then(() => {
         const cached = cache.get(key);
         // Prevent exessive store updates
-        if ((store as unknown as { value: any }).value.data !== cached)
+        if ((store as unknown as StoreWithValue).value.data !== cached)
           set(cached ? { data: cached, loading: false } : loading);
       });
       await tick();
@@ -245,6 +247,13 @@ export const nanoquery = ({
           if (prevKey && testKeyAgainstSelector(prevKey, keySelector)) {
             runFetcher([prevKey, prevKeyParts!], fetcherStore, settings, true);
           }
+        }),
+        events.on(SET_KEY, (key, value) => {
+          if (
+            key === prevKey &&
+            (fetcherStore as unknown as StoreWithValue).value !== value
+          )
+            fetcherStore.set(value as FetcherValue<T>);
         })
       );
     });
@@ -384,13 +393,15 @@ const getKeyStore = (keys: KeyInput) => {
 const FOCUS = 1,
   RECONNECT = 2,
   INVALIDATE_KEYS = 3,
-  MUTATE_CACHE = 4;
+  MUTATE_CACHE = 4,
+  SET_KEY = 5;
 
 type Events = {
   [FOCUS]: Fn;
   [RECONNECT]: Fn;
   [INVALIDATE_KEYS]: (keySelector: KeySelector) => void;
   [MUTATE_CACHE]: (keySelector: KeySelector, value?: unknown) => void;
+  [SET_KEY]: (key: string, value: unknown) => void;
 };
 
 const subscribe = (name: string, fn: Fn) => {
