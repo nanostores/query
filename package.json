@@ -42,7 +42,7 @@
     "vitest": "^0.26.2"
   },
   "peerDependencies": {
-    "nanostores": "0.7"
+    "nanostores": ">0.7"
   },
   "engines": {
     "node": "^14.0.0 || ^16.0.0 || >=18.0.0"
