@@ -29,6 +29,13 @@
   "main": "./dist/nanoquery.umd.cjs",
   "module": "./dist/nanoquery.js",
   "types": "./dist/main.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/main.d.ts",
+      "import": "./dist/nanoquery.js",
+      "require": "./dist/nanoquery.umd.cjs"
+    }
+  },
   "dependencies": {
     "nanoevents": "7"
   },
