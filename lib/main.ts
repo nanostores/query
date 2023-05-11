@@ -34,6 +34,8 @@ export type FetcherValue<T = any, E = Error> = {
   data?: T;
   error?: E;
   loading: boolean;
+
+  promise?: Promise<T>;
 };
 
 export type FetcherStore<T = any, E = any> = MapStore<FetcherValue<T, E>> & {
@@ -88,7 +90,7 @@ export const nanoquery = ({
 
   const runFetcher = async (
     [key, keyParts]: [Key, KeyParts],
-    store: FetcherStore,
+    store: PrivateFetcherStore,
     settings: CommonSettings,
     force?: true
   ) => {
@@ -143,15 +145,16 @@ export const nanoquery = ({
 
     try {
       console.log("running fetcher", key);
-      const res = await fetcher!(...keyParts);
+      const promise = fetcher!(...keyParts);
+      setKey("promise", promise);
+      const res = await promise;
       cache.set(key, res);
       set({ data: res, loading: false });
       _lastFetch.set(key, getNow());
     } catch (error: any) {
       // Possibly preserving previous cache
       settings.onError?.(error);
-      setKey("error", error);
-      setKey("loading", false);
+      set({ data: store.value.data, error, loading: false });
     } finally {
       _runningFetches.delete(key);
     }

@@ -78,7 +78,7 @@ describe.concurrent("fetcher tests", () => {
     const store = makeFetcher(keys, { fetcher });
     store.subscribe(noop);
 
-    expect(store.get()).toEqual({ loading: true });
+    expect(store.get()).toMatchObject({ loading: true });
     await advance(20);
     expect(store.get()).toEqual({ loading: false, data: undefined });
   });
@@ -95,7 +95,7 @@ describe.concurrent("fetcher tests", () => {
 
     await advance();
 
-    expect(store.get()).toEqual({ error: "err", loading: false });
+    expect(store.get()).toMatchObject({ error: "err", loading: false });
   });
 
   test("transitions through states correctly", async () => {
@@ -137,14 +137,14 @@ describe.concurrent("fetcher tests", () => {
     expect(store.key).toBe("/api/key/id1");
 
     await advance();
-    expect(store.get()).toEqual({ loading: true });
+    expect(store.get()).toMatchObject({ loading: true });
     await advance(20);
     expect(store.get()).toEqual({ data: "id1Value", loading: false });
 
     $id.set("id2");
     expect(store.key).toBe("/api/key/id2");
     await advance();
-    expect(store.get()).toEqual({ loading: true });
+    expect(store.get()).toMatchObject({ loading: true });
     await advance(20);
 
     expect(store.get()).toEqual({ data: "id2Value", loading: false });
@@ -199,7 +199,7 @@ describe.concurrent("fetcher tests", () => {
 
     expect(store.get()).toEqual({ loading: false });
     $id.set("id2");
-    expect(store.get()).toEqual({ loading: true });
+    expect(store.get()).toMatchObject({ loading: true });
     await advance();
     expect(store.get()).toEqual({ data: "data", loading: false });
   });
@@ -247,20 +247,20 @@ describe.concurrent("fetcher tests", () => {
     const store = makeFetcher(keys, { fetcher, dedupeTime: 0 });
     store.subscribe(noop);
 
-    expect(store.get()).toEqual({ loading: true });
+    expect(store.get()).toMatchObject({ loading: true });
     await advance(20);
     expect(store.get()).toEqual({ data: "id1Value0", loading: false });
 
     $id.set("id2");
     await advance();
-    expect(store.get()).toEqual({ loading: true });
+    expect(store.get()).toMatchObject({ loading: true });
 
     await advance(20);
     expect(store.get()).toEqual({ data: "id2Value1", loading: false });
 
     $id.set("id1");
     await advance();
-    expect(store.get()).toEqual({ data: "id1Value0", loading: true });
+    expect(store.get()).toMatchObject({ data: "id1Value0", loading: true });
 
     await advance(20);
     expect(store.get()).toEqual({ data: "id1Value2", loading: false });
@@ -314,13 +314,13 @@ describe.concurrent("fetcher tests", () => {
     const store = makeFetcher(keys, { fetcher });
     store.subscribe(noop);
 
-    expect(store.get()).toEqual({ loading: true });
+    expect(store.get()).toMatchObject({ loading: true });
     await advance(100);
     $id.set("two");
     for (let i = 0; i < 5; i++) {
       await advance();
     }
-    expect(store.get()).toEqual({ loading: true });
+    expect(store.get()).toMatchObject({ loading: true });
     await advance(600);
     await advance(600);
     expect(fetcher).toHaveBeenCalledTimes(2);
@@ -565,7 +565,10 @@ describe.concurrent("mutator tests", () => {
 
       const { mutate } = $mutate.get();
       await mutate("hey");
-      expect(store.get()).toEqual({ loading: true, data: "mutated manually" });
+      expect(store.get()).toMatchObject({
+        loading: true,
+        data: "mutated manually",
+      });
 
       await advance();
       expect(fetcher).toHaveBeenCalledTimes(2);
