@@ -2,7 +2,6 @@ import { atom, map, MapStore, onStart, onStop, ReadableAtom } from "nanostores";
 import { createNanoEvents } from "nanoevents";
 
 type Fn = () => void;
-type StoreWithValue = { value: any };
 
 export type KeyInput =
   | string
@@ -34,10 +33,17 @@ export type FetcherValue<T = any, E = Error> = {
   data?: T;
   error?: E;
   loading: boolean;
+
+  promise?: Promise<T>;
 };
 
 export type FetcherStore<T = any, E = any> = MapStore<FetcherValue<T, E>> & {
   key?: string;
+  invalidate: (...args: any[]) => void;
+  mutate: (data?: T) => void;
+};
+type PrivateFetcherStore<T = any, E = any> = FetcherStore<T, E> & {
+  value: FetcherValue<T, E>;
 };
 export type FetcherStoreCreator<T = any, E = Error> = (
   keys: KeyInput,
@@ -78,25 +84,26 @@ export const nanoquery = ({
 
   const _refetchOnInterval = new Map<KeyInput, number>(),
     _lastFetch = new Map<Key, number>(),
-    _runningFetches = new Set<Key>(),
-    _latestStoreKey = new Map<FetcherStore, Key>();
+    _runningFetches = new Set<Key>();
 
   // Used for testing to have the highest say in settings hierarchy
   let rewrittenSettings: CommonSettings = {};
 
   const runFetcher = async (
     [key, keyParts]: [Key, KeyParts],
-    store: FetcherStore,
+    store: PrivateFetcherStore,
     settings: CommonSettings,
     force?: true
   ) => {
-    _latestStoreKey.set(store, key);
-    const isKeyStillSame = () => _latestStoreKey.get(store) === key;
+    if (!focus) return;
+
+    const isKeyStillSame = () => store.key === key;
+
     const set = (v: FetcherValue) => {
         if (isKeyStillSame()) {
           console.log(`setting to ${v}`);
           store.set(v);
-          events.emit(SET_KEY, key, v);
+          events.emit(SET_CACHE, key, v, true);
         }
       },
       setKey = <K extends keyof FetcherValue>(k: K, v: FetcherValue[K]) => {
@@ -106,8 +113,6 @@ export const nanoquery = ({
         }
       };
 
-    if (!focus) return;
-
     const { dedupeTime = 4000, fetcher } = {
       ...settings,
       ...rewrittenSettings,
@@ -116,14 +121,10 @@ export const nanoquery = ({
     const now = getNow();
 
     if (!force) {
-      // Calling it after tick, because otherwise it won't be propagated to .listen
-      tick().then(() => {
-        const cached = cache.get(key);
-        // Prevent exessive store updates
-        if ((store as unknown as StoreWithValue).value.data !== cached)
-          set(cached ? { data: cached, loading: false } : loading);
-      });
-      await tick();
+      const cached = cache.get(key);
+      // Prevent exessive store updates
+      if (store.value.data !== cached)
+        set(cached ? { data: cached, ...notLoading } : { ...loading });
 
       const last = _lastFetch.get(key);
       if (last && last + dedupeTime > now) {
@@ -145,15 +146,16 @@ export const nanoquery = ({
 
     try {
       console.log("running fetcher", key);
-      const res = await fetcher!(...keyParts);
+      const promise = fetcher!(...keyParts);
+      setKey("promise", promise);
+      const res = await promise;
       cache.set(key, res);
-      set({ data: res, loading: false });
+      set({ data: res, ...notLoading });
       _lastFetch.set(key, getNow());
     } catch (error: any) {
       // Possibly preserving previous cache
       settings.onError?.(error);
-      setKey("error", error);
-      setKey("loading", false);
+      set({ data: store.value.data, error, ...notLoading });
     } finally {
       _runningFetches.delete(key);
     }
@@ -172,10 +174,23 @@ export const nanoquery = ({
       );
     }
 
-    const fetcherStore: FetcherStore<T> = map({
-        loading: true,
+    const fetcherStore: PrivateFetcherStore<T> = map({
+        ...notLoading,
       }),
       settings = { ...globalSettings, ...fetcherSettings, fetcher };
+
+    fetcherStore.invalidate = () => {
+      const { key } = fetcherStore;
+      if (key) {
+        invalidateKeys(key);
+      }
+    };
+    fetcherStore.mutate = (data) => {
+      const { key } = fetcherStore;
+      if (key) {
+        mutateCache(key, data);
+      }
+    };
 
     let keysInternalUnsub: Fn,
       prevKey: Key | undefined,
@@ -204,9 +219,6 @@ export const nanoquery = ({
       if (currentKeyValue) {
         [prevKey, prevKeyParts] = currentKeyValue;
         if (firstRun) handleNewListener();
-      } else {
-        // Initial value when one of the keys is null
-        tick().then(() => fetcherStore.set(loading));
       }
 
       const {
@@ -231,29 +243,22 @@ export const nanoquery = ({
         evtUnsubs.push(events.on(RECONNECT, runRefetcher));
 
       evtUnsubs.push(
-        events.on(MUTATE_CACHE, (keySelector, data) => {
-          if (prevKey && testKeyAgainstSelector(prevKey, keySelector)) {
-            // Removing key altogether
-            if (data === void 0) {
-              cache.delete(prevKey);
-              _lastFetch.delete(prevKey);
-            } else {
-              cache.set(prevKey, data);
-            }
-            fetcherStore.setKey("data", data as T | undefined);
-          }
-        }),
         events.on(INVALIDATE_KEYS, (keySelector) => {
           if (prevKey && testKeyAgainstSelector(prevKey, keySelector)) {
             runFetcher([prevKey, prevKeyParts!], fetcherStore, settings, true);
           }
         }),
-        events.on(SET_KEY, (key, value) => {
+        events.on(SET_CACHE, (keySelector, data, full) => {
           if (
-            key === prevKey &&
-            (fetcherStore as unknown as StoreWithValue).value !== value
-          )
-            fetcherStore.set(value as FetcherValue<T>);
+            prevKey &&
+            testKeyAgainstSelector(prevKey, keySelector) &&
+            fetcherStore.value !== data &&
+            fetcherStore.value.data !== data
+          ) {
+            fetcherStore.set(
+              (full ? data : { data, ...notLoading }) as FetcherValue<T>
+            );
+          }
         })
       );
     });
@@ -263,13 +268,16 @@ export const nanoquery = ({
         runFetcher([prevKey, prevKeyParts], fetcherStore, settings);
     };
 
-    const originListen = fetcherStore.listen;
-    fetcherStore.listen = (listener) => {
-      handleNewListener();
-      return originListen(listener);
-    };
+    const newImplFactory =
+      (origin: typeof fetcherStore.subscribe) => (listener: any) => {
+        handleNewListener();
+        return origin(listener);
+      };
+    fetcherStore.listen = newImplFactory(fetcherStore.listen);
+    fetcherStore.subscribe = newImplFactory(fetcherStore.subscribe);
 
     onStop(fetcherStore, () => {
+      fetcherStore.value = { ...notLoading };
       keysInternalUnsub?.();
       evtUnsubs.forEach((fn) => fn());
       evtUnsubs = [];
@@ -281,11 +289,31 @@ export const nanoquery = ({
     return fetcherStore as FetcherStore<T, E>;
   };
 
+  const nukeKey = (key: string) => {
+    cache.delete(key);
+    _lastFetch.delete(key);
+
+    console.log("Nuking key", key);
+  };
+  const iterOverCache = (
+    keySelector: KeySelector,
+    cb: (key: string) => void
+  ) => {
+    for (const key of cache.keys()) {
+      if (testKeyAgainstSelector(key, keySelector)) cb(key);
+    }
+  };
   const invalidateKeys = (keySelector: KeySelector) => {
+    iterOverCache(keySelector, nukeKey);
     events.emit(INVALIDATE_KEYS, keySelector);
   };
   const mutateCache = (keySelector: KeySelector, data?: unknown) => {
-    events.emit(MUTATE_CACHE, keySelector, data);
+    iterOverCache(keySelector, (key) => {
+      if (data === void 0) nukeKey(key);
+      else cache.set(key, data);
+    });
+
+    events.emit(SET_CACHE, keySelector, data);
   };
 
   function createMutatorStore<Data = void, Result = unknown, E = any>(
@@ -298,9 +326,9 @@ export const nanoquery = ({
       try {
         store.set({
           error: void 0,
-          loading: true,
           data: void 0,
           mutate: mutate as MutateCb<Data>,
+          ...loading,
         });
         const result = await newMutator({
           data,
@@ -333,7 +361,7 @@ export const nanoquery = ({
     };
     const store: MutatorStore<Data, Result, E> = map({
       mutate: mutate as MutateCb<Data>,
-      loading: false,
+      ...notLoading,
     });
     return store;
   }
@@ -393,15 +421,22 @@ const getKeyStore = (keys: KeyInput) => {
 const FOCUS = 1,
   RECONNECT = 2,
   INVALIDATE_KEYS = 3,
-  MUTATE_CACHE = 4,
-  SET_KEY = 5;
+  SET_CACHE = 4;
 
 type Events = {
   [FOCUS]: Fn;
   [RECONNECT]: Fn;
   [INVALIDATE_KEYS]: (keySelector: KeySelector) => void;
-  [MUTATE_CACHE]: (keySelector: KeySelector, value?: unknown) => void;
-  [SET_KEY]: (key: string, value: unknown) => void;
+  /**
+   * @param value The new value. It can either be the full FetcherValue with `loading`, `error` and
+   * so on, or it can be the `data` argument only. This is controlled by the `full` argument
+   * @returns
+   */
+  [SET_CACHE]: (
+    keySelector: KeySelector,
+    value?: unknown,
+    full?: boolean
+  ) => void;
 };
 
 const subscribe = (name: string, fn: Fn) => {
@@ -419,6 +454,5 @@ const testKeyAgainstSelector = (key: Key, selector: KeySelector): boolean => {
 
 const getNow = () => new Date().getTime();
 
-const tick = () => new Promise<void>((r) => r());
-
-const loading = Object.freeze({ loading: true });
+const loading = { loading: true },
+  notLoading = { loading: false };
