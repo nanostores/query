@@ -98,6 +98,25 @@ describe.concurrent("fetcher tests", () => {
     expect(store.get()).toMatchObject({ error: "err", loading: false });
   });
 
+  test("provides a promise as part of the lib", async () => {
+    const res = {};
+    const originalPromise = new Promise((r) => r(res));
+
+    const fetcher = vi.fn().mockImplementationOnce(() => originalPromise);
+
+    const [makeFetcher] = nanoquery();
+    const store = makeFetcher("", { fetcher });
+    store.subscribe(noop);
+
+    const { promise } = store.get();
+    expect(promise).toBeInstanceOf(Promise);
+    expect(promise).toStrictEqual(originalPromise);
+
+    await advance();
+
+    expect(store.get().data).toStrictEqual(res);
+  });
+
   test("transitions through states correctly", async () => {
     const keys = ["/api", "/key"];
     const fetcher = vi
