@@ -37,7 +37,7 @@ npm install nanostores @nanostores/query
 See [Nano Stores docs](https://github.com/nanostores/nanostores#guide)
 about using the store and subscribing to store’s changes in UI frameworks.
 
-### Query
+### Context
 
 First, we define the context. It allows us to share the default fetcher
 implementation between all fetcher stores, refetching settings, and allows for
@@ -168,6 +168,49 @@ const AddCommentForm = () => {
 };
 ```
 
+## _Third returned item_
+
+(we didn't come up with a name for it 😅)
+
+`nanoquery` function returns a third item that gives you a bit more manual control over the behavior of the cache.
+
+```ts
+// store/fetcher.ts
+import { nanoquery } from '@nanostores/query';
+
+export const [,, { invalidateKeys, mutateCache }] = nanoquery();
+```
+
+`invalidateKeys` does 2 things:
+
+1. nukes all cache for the specified keys;
+2. asks all the fetcher stores that used those keys to refresh data immediately, if they have active subscribers.
+
+It accepts one argument—the keys—in 3 different forms, that we call _key selector_.
+
+```ts
+// Single key
+invalidateKeys("/api/whoAmI");
+// Array of keys
+invalidateKeys(["/api/dashboard", "/api/projects"]);
+/**
+ * A function that will be called against all keys in cache.
+ * Must return `true` if key should be invalidated.
+ */
+invalidateKeys((key) => key.startsWith("/api/job"));
+```
+
+`mutateCache` does one thing only: it mutates cache for those keys and refreshes all fetcher stores that have those keys currently.
+
+```ts
+/**
+ * Accepts key in the same form as `invalidateKeys`: single, array and a function.
+ */
+mutateCache((key) => key === "/api/whoAmI", { title: "I'm Batman!" });
+```
+
+Keep in mind: we're talking about the serialized singular form of keys here. You cannot pass stuff like `['/api', '/v1', $someStore]`, it needs to be the full key in its string form.
+
 ## Recipes
 
 ### Local state and Pagination
@@ -193,3 +236,31 @@ const UserAvatar: FC<{ id: string }> = ({ id }) => {
 
 This way you can leverage all nanoquery features, like cache or refetching, but
 not give up the flexibility of component-level data fetching.
+
+### Refetching and manual mutation
+
+We've already walked through all the primitives needed for refetching and mutation, but the interface is rather bizarre with all those string-based keys. Often all we actually want is to refetch _current_ key (say, you have this refresh button in the UI), ot mutate _current_ key, right?
+
+For these cases we have 3 additional things on fetcher stores:
+
+1. `fetcherStore.invalidate`. It's a function that invalidates current key for the fetcher. Doesn't accept any arguments.
+2. `fetcherStore.mutate`. It's a function that mutates current key for the fetcher. Accepts the new value.
+3. `fetcherStore.key`. Well, it holds current key in serialized form (as a string).
+
+Typically, those 3 are more than enough to make all look very good.
+
+### Dependencies, but not in keys
+
+Let's say, you have a dependency for your fetcher, but you don't wish for it to be in your fetcher keys. For example, this could be your `refreshToken`—that would be a hassle to put it _everywhere_, but you need it, because once you change your user, you don't want to have stale cache from the previous user.
+
+The idea here is to wipe the cache manually. For something as big as a new refresh token you can go and do a simple "wipe everything you find":
+
+```ts
+onSet($refreshToken, () => invalidateKeys(() => true))
+```
+
+But if your store is somehow dependant on other store, but it shouldn't be reflected in the key, you should do the same, but more targetly:
+
+```ts
+onSet($someOutsideFactor, $specificStore.invalidate)
+```
