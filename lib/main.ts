@@ -39,6 +39,9 @@ export type FetcherValue<T = any, E = Error> = {
 export type FetcherStore<T = any, E = any> = MapStore<FetcherValue<T, E>> & {
   key?: string;
 };
+type PrivateFetcherStore<T = any, E = any> = FetcherStore<T, E> & {
+  value: T;
+};
 export type FetcherStoreCreator<T = any, E = Error> = (
   keys: KeyInput,
   settings?: CommonSettings<T>
@@ -78,8 +81,7 @@ export const nanoquery = ({
 
   const _refetchOnInterval = new Map<KeyInput, number>(),
     _lastFetch = new Map<Key, number>(),
-    _runningFetches = new Set<Key>(),
-    _latestStoreKey = new Map<FetcherStore, Key>();
+    _runningFetches = new Set<Key>();
 
   // Used for testing to have the highest say in settings hierarchy
   let rewrittenSettings: CommonSettings = {};
@@ -90,8 +92,10 @@ export const nanoquery = ({
     settings: CommonSettings,
     force?: true
   ) => {
-    _latestStoreKey.set(store, key);
-    const isKeyStillSame = () => _latestStoreKey.get(store) === key;
+    if (!focus) return;
+
+    const isKeyStillSame = () => store.key === key;
+
     const set = (v: FetcherValue) => {
         if (isKeyStillSame()) {
           console.log(`setting to ${v}`);
@@ -106,8 +110,6 @@ export const nanoquery = ({
         }
       };
 
-    if (!focus) return;
-
     const { dedupeTime = 4000, fetcher } = {
       ...settings,
       ...rewrittenSettings,
@@ -116,14 +118,10 @@ export const nanoquery = ({
     const now = getNow();
 
     if (!force) {
-      // Calling it after tick, because otherwise it won't be propagated to .listen
-      tick().then(() => {
-        const cached = cache.get(key);
-        // Prevent exessive store updates
-        if ((store as unknown as StoreWithValue).value.data !== cached)
-          set(cached ? { data: cached, loading: false } : loading);
-      });
-      await tick();
+      const cached = cache.get(key);
+      // Prevent exessive store updates
+      if ((store as unknown as StoreWithValue).value.data !== cached)
+        set(cached ? { data: cached, loading: false } : loading);
 
       const last = _lastFetch.get(key);
       if (last && last + dedupeTime > now) {
@@ -172,8 +170,8 @@ export const nanoquery = ({
       );
     }
 
-    const fetcherStore: FetcherStore<T> = map({
-        loading: true,
+    const fetcherStore: PrivateFetcherStore<T> = map({
+        loading: false,
       }),
       settings = { ...globalSettings, ...fetcherSettings, fetcher };
 
@@ -204,9 +202,6 @@ export const nanoquery = ({
       if (currentKeyValue) {
         [prevKey, prevKeyParts] = currentKeyValue;
         if (firstRun) handleNewListener();
-      } else {
-        // Initial value when one of the keys is null
-        tick().then(() => fetcherStore.set(loading));
       }
 
       const {
@@ -249,10 +244,7 @@ export const nanoquery = ({
           }
         }),
         events.on(SET_KEY, (key, value) => {
-          if (
-            key === prevKey &&
-            (fetcherStore as unknown as StoreWithValue).value !== value
-          )
+          if (key === prevKey && fetcherStore.value !== value)
             fetcherStore.set(value as FetcherValue<T>);
         })
       );
@@ -263,11 +255,13 @@ export const nanoquery = ({
         runFetcher([prevKey, prevKeyParts], fetcherStore, settings);
     };
 
-    const originListen = fetcherStore.listen;
-    fetcherStore.listen = (listener) => {
-      handleNewListener();
-      return originListen(listener);
-    };
+    const newImplFactory =
+      (origin: typeof fetcherStore.subscribe) => (listener: any) => {
+        handleNewListener();
+        return origin(listener);
+      };
+    fetcherStore.listen = newImplFactory(fetcherStore.listen);
+    fetcherStore.subscribe = newImplFactory(fetcherStore.subscribe);
 
     onStop(fetcherStore, () => {
       keysInternalUnsub?.();
@@ -418,7 +412,5 @@ const testKeyAgainstSelector = (key: Key, selector: KeySelector): boolean => {
 };
 
 const getNow = () => new Date().getTime();
-
-const tick = () => new Promise<void>((r) => r());
 
 const loading = Object.freeze({ loading: true });
