@@ -1,6 +1,6 @@
 {
   "name": "@nanostores/query",
-  "version": "0.0.7",
+  "version": "0.1.0",
   "description": "Tiny remote data fetching library for Nano Stores",
   "scripts": {
     "build": "vite build",
