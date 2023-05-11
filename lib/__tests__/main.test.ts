@@ -285,6 +285,34 @@ describe.concurrent("fetcher tests", () => {
     expect(store.get()).toEqual({ data: "id1Value2", loading: false });
   });
 
+  test("invalidator drops cache for inactive stores", async () => {
+    let counter = 0;
+    const fetcher = async () => {
+      await delay(10);
+      counter++;
+      return counter;
+    };
+
+    const [makeFetcher] = nanoquery();
+    const store = makeFetcher("/api", { fetcher });
+
+    const unsub = store.subscribe(noop);
+    await advance(20);
+    expect(store.get()).toEqual({ loading: false, data: 1 });
+
+    unsub();
+    store.invalidate();
+    await advance();
+
+    store.subscribe(noop);
+    const storeValue = store.get();
+    expect(storeValue.loading).toBe(true);
+    expect(storeValue.data).toBeUndefined();
+
+    await advance(20);
+    expect(store.get().data).toBe(2);
+  });
+
   test("creates interval fetching; disables it once we change key", async () => {
     const $id = atom<string | null>(null);
     const keys = ["/api", "/key/", $id];
