@@ -175,7 +175,7 @@ export const nanoquery = ({
     }
 
     const fetcherStore: PrivateFetcherStore<T> = map({
-        ...notLoading,
+        ...loading,
       }),
       settings = { ...globalSettings, ...fetcherSettings, fetcher };
 
@@ -219,6 +219,8 @@ export const nanoquery = ({
       if (currentKeyValue) {
         [prevKey, prevKeyParts] = currentKeyValue;
         if (firstRun) handleNewListener();
+      } else {
+        fetcherStore.set({ ...notLoading });
       }
 
       const {
