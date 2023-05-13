@@ -220,7 +220,7 @@ export const nanoquery = ({
         [prevKey, prevKeyParts] = currentKeyValue;
         if (firstRun) handleNewListener();
       } else {
-        fetcherStore.set({ ...notLoading });
+        if (firstRun) fetcherStore.set({ ...notLoading });
       }
 
       const {
