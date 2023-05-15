@@ -3,9 +3,8 @@ import { createNanoEvents } from "nanoevents";
 
 type Fn = () => void;
 
-export type KeyInput =
-  | string
-  | Array<string | ReadableAtom<string | null | undefined>>;
+type NoKey = null | undefined | void;
+export type KeyInput = string | Array<string | ReadableAtom<string | NoKey>>;
 
 type Key = string;
 type KeyParts = string[];
@@ -97,21 +96,13 @@ export const nanoquery = ({
   ) => {
     if (!focus) return;
 
-    const isKeyStillSame = () => store.key === key;
-
     const set = (v: FetcherValue) => {
-        if (isKeyStillSame()) {
-          console.log(`setting to ${v}`);
-          store.set(v);
-          events.emit(SET_CACHE, key, v, true);
-        }
-      },
-      setKey = <K extends keyof FetcherValue>(k: K, v: FetcherValue[K]) => {
-        if (isKeyStillSame()) {
-          console.log(`setting ${k} to ${v}`);
-          store.setKey(k, v);
-        }
-      };
+      if (store.key === key) {
+        console.log(`setting to ${v}`);
+        store.set(v);
+        events.emit(SET_CACHE, key, v, true);
+      }
+    };
 
     const { dedupeTime = 4000, fetcher } = {
       ...settings,
@@ -142,12 +133,10 @@ export const nanoquery = ({
     _lastFetch.set(key, now);
     _runningFetches.add(key);
 
-    setKey("loading", true);
-
     try {
       console.log("running fetcher", key);
       const promise = fetcher!(...keyParts);
-      setKey("promise", promise);
+      set({ data: store.value.data, ...loading, promise });
       const res = await promise;
       cache.set(key, res);
       set({ data: res, ...notLoading });
@@ -268,13 +257,14 @@ export const nanoquery = ({
         runFetcher([prevKey, prevKeyParts], fetcherStore, settings);
     };
 
-    const newImplFactory =
-      (origin: typeof fetcherStore.subscribe) => (listener: any) => {
-        handleNewListener();
-        return origin(listener);
-      };
-    fetcherStore.listen = newImplFactory(fetcherStore.listen);
-    fetcherStore.subscribe = newImplFactory(fetcherStore.subscribe);
+    // Replicating the behavior of .subscribe
+    const originListen = fetcherStore.listen;
+    fetcherStore.listen = (listener: any) => {
+      const unsub = originListen(listener);
+      listener(fetcherStore.value);
+      handleNewListener();
+      return unsub;
+    };
 
     onStop(fetcherStore, () => {
       fetcherStore.value = { ...notLoading };
@@ -387,7 +377,7 @@ const getKeyStore = (keys: KeyInput) => {
     return [atom([keys, [keys] as string[]] as const), () => {}] as const;
 
   let keyStore = atom<[Key, KeyParts] | null>(null),
-    keyParts: Array<string | null | undefined> = [];
+    keyParts: Array<string | NoKey> = [];
 
   const setKeyStoreValue = () => {
     if (keyParts.some((v) => v === null || v === void 0)) {

@@ -25,9 +25,9 @@ describe.concurrent("fetcher tests", () => {
 
     const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, { fetcher });
-    store.subscribe(noop);
-    store.subscribe(noop);
-    store.subscribe(noop);
+    store.listen(noop);
+    store.listen(noop);
+    store.listen(noop);
 
     await advance();
     expect(fetcher).toHaveBeenCalledOnce();
@@ -39,9 +39,9 @@ describe.concurrent("fetcher tests", () => {
 
     const [makeFetcher] = nanoquery();
     const store = makeFetcher("/api/key", { fetcher });
-    store.subscribe(noop);
-    store.subscribe(noop);
-    store.subscribe(noop);
+    store.listen(noop);
+    store.listen(noop);
+    store.listen(noop);
 
     await advance();
     expect(fetcher).toHaveBeenCalledOnce();
@@ -57,8 +57,8 @@ describe.concurrent("fetcher tests", () => {
     const store1 = makeFetcher(keys, { fetcher }),
       store2 = makeFetcher(keys);
 
-    store1.subscribe(noop);
-    store2.subscribe(noop);
+    store1.listen(noop);
+    store2.listen(noop);
 
     await advance();
     expect(fetcher).toHaveBeenCalledOnce();
@@ -76,7 +76,7 @@ describe.concurrent("fetcher tests", () => {
 
     const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, { fetcher });
-    store.subscribe(noop);
+    store.listen(noop);
 
     expect(store.get()).toMatchObject({ loading: true });
     await advance(20);
@@ -91,7 +91,7 @@ describe.concurrent("fetcher tests", () => {
 
     const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, { fetcher });
-    store.subscribe(noop);
+    store.listen(noop);
 
     await advance();
 
@@ -106,7 +106,7 @@ describe.concurrent("fetcher tests", () => {
 
     const [makeFetcher] = nanoquery();
     const store = makeFetcher("", { fetcher });
-    store.subscribe(noop);
+    store.listen(noop);
 
     const { promise } = store.get();
     expect(promise).toBeInstanceOf(Promise);
@@ -127,7 +127,7 @@ describe.concurrent("fetcher tests", () => {
 
     const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, { fetcher });
-    store.subscribe(noop);
+    store.listen(noop);
 
     await advance(20);
 
@@ -152,7 +152,7 @@ describe.concurrent("fetcher tests", () => {
     const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, { fetcher });
 
-    store.subscribe(noop);
+    store.listen(noop);
     expect(store.key).toBe("/api/key/id1");
 
     await advance();
@@ -183,14 +183,14 @@ describe.concurrent("fetcher tests", () => {
     const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, { fetcher, dedupeTime: 20 });
     {
-      const unsub = store.subscribe(noop);
+      const unsub = store.listen(noop);
       await advance(10);
       expect(store.get()).toEqual({ data: "data", loading: false });
       unsub();
     }
     await advance(10);
     {
-      const unsub = store.subscribe(noop);
+      const unsub = store.listen(noop);
       await advance();
       expect(store.get()).toEqual({ data: "data", loading: false });
       unsub();
@@ -198,7 +198,7 @@ describe.concurrent("fetcher tests", () => {
       await advance(30);
     }
 
-    store.subscribe(noop);
+    store.listen(noop);
     await advance();
     expect(store.get()).toEqual({ data: "data", loading: false });
     expect(fetcher).toHaveBeenCalledTimes(2);
@@ -214,7 +214,7 @@ describe.concurrent("fetcher tests", () => {
 
     const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, { fetcher });
-    store.subscribe(noop);
+    store.listen(noop);
 
     expect(store.get()).toEqual({ loading: false });
     $id.set("id2");
@@ -235,7 +235,7 @@ describe.concurrent("fetcher tests", () => {
     const [makeFetcher, , { __unsafeOverruleSettings }] = nanoquery();
     const store = makeFetcher(keys, { fetcher: fetcher1 });
     __unsafeOverruleSettings({ fetcher: fetcher2 });
-    store.subscribe(noop);
+    store.listen(noop);
 
     await advance();
     expect(store.get()).toEqual({ data: null, loading: false });
@@ -264,7 +264,7 @@ describe.concurrent("fetcher tests", () => {
 
     const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, { fetcher, dedupeTime: 0 });
-    store.subscribe(noop);
+    store.listen(noop);
 
     expect(store.get()).toMatchObject({ loading: true });
     await advance(20);
@@ -296,7 +296,7 @@ describe.concurrent("fetcher tests", () => {
     const [makeFetcher] = nanoquery();
     const store = makeFetcher("/api", { fetcher });
 
-    const unsub = store.subscribe(noop);
+    const unsub = store.listen(noop);
     await advance(20);
     expect(store.get()).toEqual({ loading: false, data: 1 });
 
@@ -304,7 +304,7 @@ describe.concurrent("fetcher tests", () => {
     store.invalidate();
     await advance();
 
-    store.subscribe(noop);
+    store.listen(noop);
     const storeValue = store.get();
     expect(storeValue.loading).toBe(true);
     expect(storeValue.data).toBeUndefined();
@@ -326,7 +326,7 @@ describe.concurrent("fetcher tests", () => {
       dedupeTime: 0,
       refetchInterval: 5,
     });
-    const unsub = store.subscribe(() => null);
+    const unsub = store.listen(() => null);
     $id.set("");
     await advance();
     expect(fetcher).toHaveBeenCalledOnce();
@@ -359,7 +359,7 @@ describe.concurrent("fetcher tests", () => {
 
     const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, { fetcher });
-    store.subscribe(noop);
+    store.listen(noop);
 
     expect(store.get()).toMatchObject({ loading: true });
     await advance(100);
@@ -382,24 +382,24 @@ describe.concurrent("fetcher tests", () => {
   test("consecutive error does not wipe cache", async () => {
     const keys = ["/api", "/key"];
 
-    let shouldErr = false;
-    const fetcher = vi.fn().mockImplementation(async () => {
-      if (shouldErr) throw "err";
-      else {
-        shouldErr = true;
-        return "data";
-      }
+    const fetcher = vi.fn().mockImplementationOnce(async () => {
+      console.log("data fetcher");
+      return "data";
     });
 
     const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, { fetcher, dedupeTime: 0 });
-    store.subscribe(noop);
+    store.listen(noop);
 
     await advance();
     expect(store.get()).toEqual({ data: "data", loading: false });
+    fetcher.mockImplementationOnce(async () => {
+      console.log("err fetcher");
+      throw "err";
+    });
 
     // Getting a new listener to spark a new fetch
-    store.subscribe(noop);
+    store.listen(noop);
     await advance();
     expect(store.get()).toEqual({ error: "err", data: "data", loading: false });
   });
@@ -418,7 +418,7 @@ describe.concurrent("fetcher tests", () => {
     const [makeFetcher] = nanoquery({ onError: onErrorContext });
     {
       const store = makeFetcher(keys, { fetcher, dedupeTime: 0 });
-      store.subscribe(noop);
+      store.listen(noop);
 
       await advance();
       expect(onErrorContext).toBeCalledTimes(1);
@@ -427,7 +427,7 @@ describe.concurrent("fetcher tests", () => {
     {
       const onError = vi.fn();
       const store = makeFetcher(keys, { fetcher, dedupeTime: 0, onError });
-      store.subscribe(noop);
+      store.listen(noop);
 
       await advance();
       expect(onErrorContext).toBeCalledTimes(1);
@@ -450,7 +450,7 @@ describe("refetch logic", () => {
       refetchOnFocus: true,
       dedupeTime: 0,
     });
-    store.subscribe(noop);
+    store.listen(noop);
     await advance();
     dispatchEvent(new Event("online"));
     await advance();
@@ -476,7 +476,7 @@ describe("refetch logic", () => {
       dedupeTime: 0,
     });
 
-    store.subscribe(noop);
+    store.listen(noop);
 
     await advance(5);
     await advance(5);
@@ -509,7 +509,7 @@ describe("refetch logic", () => {
     });
 
     const listener = vi.fn();
-    store.subscribe(listener);
+    store.listen(listener);
 
     await advance();
     expect(store.get()).toEqual({ data: {}, loading: false });
@@ -528,7 +528,7 @@ describe.concurrent("mutator tests", () => {
     test("correct transitions", async () => {
       const [, makeMutator] = nanoquery();
       const $mutate = makeMutator<void, string>(async () => "hey");
-      $mutate.subscribe(noop);
+      $mutate.listen(noop);
 
       const { mutate } = $mutate.get();
       expect($mutate.get().loading).toBeFalsy();
@@ -556,8 +556,8 @@ describe.concurrent("mutator tests", () => {
         fetcher: fetcher2,
         dedupeTime: 2e20,
       });
-      $data.subscribe(noop);
-      $data2.subscribe(noop);
+      $data.listen(noop);
+      $data2.listen(noop);
 
       let fetcherCallCountAfterInvalidation = -1,
         fetcher2CallCountAfterInvalidation = -1;
@@ -570,7 +570,7 @@ describe.concurrent("mutator tests", () => {
       });
 
       const $mutate = makeMutator<string>(mutator);
-      $mutate.subscribe(noop);
+      $mutate.listen(noop);
 
       await advance();
       const { mutate } = $mutate.get();
@@ -593,7 +593,7 @@ describe.concurrent("mutator tests", () => {
 
       const [makeFetcher, makeMutator] = nanoquery();
       const store = makeFetcher(keyParts, { fetcher, dedupeTime: 2e20 });
-      store.subscribe(noop);
+      store.listen(noop);
 
       const $mutate = makeMutator<string>(async ({ getCacheUpdater, data }) => {
         try {
@@ -605,7 +605,7 @@ describe.concurrent("mutator tests", () => {
           console.error(error);
         }
       });
-      $mutate.subscribe(noop);
+      $mutate.listen(noop);
 
       await advance(10);
       expect(store.get()).toEqual({ loading: false, data: 0 });
@@ -633,7 +633,7 @@ describe.concurrent("mutator tests", () => {
 
       const [, makeMutator] = nanoquery({ onError: onErrorContext });
       const store = makeMutator(fetcher);
-      store.subscribe(noop);
+      store.listen(noop);
 
       const { mutate } = store.get();
       await mutate();
@@ -652,7 +652,7 @@ describe.concurrent("mutator tests", () => {
 
     const [makeFetcher, makeMutator] = nanoquery();
     const store = makeFetcher(keyParts, { fetcher, dedupeTime: 2e20 });
-    store.subscribe(noop);
+    store.listen(noop);
 
     const $mutate = makeMutator<string>(async ({ getCacheUpdater, data }) => {
       try {
@@ -667,7 +667,7 @@ describe.concurrent("mutator tests", () => {
         console.error(error);
       }
     });
-    $mutate.subscribe(noop);
+    $mutate.listen(noop);
 
     await advance(10);
     expect(store.get()).toEqual({ loading: false, data: 0 });
@@ -689,7 +689,7 @@ describe.concurrent("mutator tests", () => {
     const $mutate = makeMutator(fetcher1);
     __unsafeOverruleSettings({ fetcher: fetcher2 });
 
-    $mutate.subscribe(noop);
+    $mutate.listen(noop);
     await advance();
     const { mutate } = $mutate.get();
     await mutate();
@@ -707,7 +707,7 @@ describe.concurrent("global invalidator and mutator", () => {
 
     const [makeFetcher, , { invalidateKeys }] = nanoquery();
     const store = makeFetcher(keys, { fetcher });
-    store.subscribe(noop);
+    store.listen(noop);
 
     await advance();
     expect(fetcher).toBeCalledTimes(1);
@@ -734,7 +734,7 @@ describe.concurrent("global invalidator and mutator", () => {
 
     const [makeFetcher, , { mutateCache }] = nanoquery();
     const store = makeFetcher(keys, { fetcher });
-    store.subscribe(noop);
+    store.listen(noop);
 
     await advance();
     expect(store.get().data).toBe(true);
@@ -766,7 +766,7 @@ describe.concurrent("global invalidator and mutator", () => {
 
     const [makeFetcher, , { mutateCache }] = nanoquery({ dedupeTime: 2e20 });
     const store = makeFetcher(keys, { fetcher });
-    store.subscribe(noop);
+    store.listen(noop);
 
     await advance();
     expect(store.get().data).toBe(true);
@@ -774,7 +774,7 @@ describe.concurrent("global invalidator and mutator", () => {
     mutateCache(keys.join(""));
     await advance();
     expect(store.get().data).toBe(void 0);
-    store.subscribe(noop);
+    store.listen(noop);
 
     await advance();
     expect(store.get().data).toBe(true);
