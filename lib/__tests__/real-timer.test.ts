@@ -31,12 +31,12 @@ test("correct events in conditional fetcher", async () => {
     events.push(v);
   });
 
-  await delay(0);
+  expect(events[0]).toMatchObject({ loading: false });
   $conditional.set("123");
+  expect(events[1]).toMatchObject({ loading: true });
+
   await delay(30);
 
-  expect(events[0]).toMatchObject({ loading: false });
-  expect(events[1]).toMatchObject({ loading: true });
   expect(events[2]).toMatchObject({ loading: false, data: 1 });
 });
 
@@ -54,9 +54,9 @@ test("correct events in non-conditional fetcher", async () => {
     events.push(v);
   });
 
-  await delay(30);
-
   expect(events[0]).toMatchObject({ loading: true });
+
+  await delay(30);
   expect(events[1]).toMatchObject({ loading: false, data: 1 });
 });
 
