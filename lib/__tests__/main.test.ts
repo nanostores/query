@@ -313,6 +313,33 @@ describe.concurrent("fetcher tests", () => {
     expect(store.get().data).toBe(2);
   });
 
+  test("internal nanostores cache is dropped between key changes", async () => {
+    const fetcher = async (...keys: string[]) => keys[0];
+
+    const $key = atom<string | void>("1");
+
+    const [makeFetcher] = nanoquery();
+    const store = makeFetcher([$key, "/api"], { fetcher });
+
+    const unbind = store.listen(noop);
+    await advance();
+
+    expect(store.get().data).toBe("1");
+    unbind();
+
+    $key.set();
+
+    const events: any[] = [];
+    store.listen((v) => events.push(v));
+
+    $key.set("2");
+    await advance();
+
+    expect(events[0]).toMatchObject({ loading: false });
+    expect(events[1]).toMatchObject({ loading: true, data: undefined });
+    expect(events[2]).toMatchObject({ data: "2" });
+  });
+
   test("creates interval fetching; disables it once we change key", async () => {
     const $id = atom<string | null>(null);
     const keys = ["/api", "/key/", $id];
