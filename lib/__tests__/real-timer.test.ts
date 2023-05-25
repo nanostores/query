@@ -74,14 +74,24 @@ test("emulating useSyncExternalStore behavior", async () => {
    */
   let events: any[] = [];
   store.get();
+  await delay();
+  const unbind = store.listen((v) => {
+    events.push(v);
+  });
+  await delay();
+  store.get();
+  unbind();
+  await delay();
   store.listen((v) => {
     events.push(v);
   });
   await delay(25);
 
-  expect(events.length).toBe(2);
+  // 3 items, because 2 subscriptions
+  expect(events.length).toBe(3);
   expect(events[0]).toMatchObject({ loading: true });
-  expect(events[1]).toMatchObject({ loading: false, data: 1 });
+  expect(events[1]).toMatchObject({ loading: true });
+  expect(events[2]).toMatchObject({ loading: false, data: 1 });
 });
 
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const delay = (ms = 0) => new Promise((r) => setTimeout(r, ms));

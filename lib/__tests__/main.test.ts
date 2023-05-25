@@ -336,7 +336,8 @@ describe.concurrent("fetcher tests", () => {
     await advance();
 
     expect(events[0]).toMatchObject({ loading: false });
-    expect(events[1]).toMatchObject({ loading: true, data: undefined });
+    expect(events[1]).toMatchObject({ loading: true });
+    expect(events[1].data).toBeUndefined();
     expect(events[2]).toMatchObject({ data: "2" });
   });
 
