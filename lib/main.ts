@@ -180,6 +180,13 @@ export const nanoquery = ({
         mutateCache(key, data);
       }
     };
+    /*
+     Some integration frameworks (I'm looking at you, React) call `.get()` before actually
+     creating a new subscription. That leads to parasitic lifecycle hook calls: onStart => onStop,
+     even though there was never a start or stop.
+     Well we, we don't need it.
+     */
+    fetcherStore.get = () => fetcherStore.value;
 
     let keysInternalUnsub: Fn,
       prevKey: Key | undefined,
