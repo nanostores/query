@@ -1,17 +1,9 @@
 import { atom } from "nanostores";
 import { nanoquery } from "../main";
+import { noop, delay } from "./setup";
 
 beforeAll(() => {
   vi.useFakeTimers();
-  const eventToCb: Record<string, () => void> = {};
-  vi.stubGlobal("window", globalThis);
-  vi.stubGlobal(
-    "addEventListener",
-    (name: string, cb: () => void) => (eventToCb[name] = cb)
-  );
-  vi.stubGlobal("dispatchEvent", (evt: { type: string }) => {
-    eventToCb?.[evt.type]?.();
-  });
 });
 afterEach(() => {
   vi.restoreAllMocks();
@@ -463,6 +455,28 @@ describe.concurrent("fetcher tests", () => {
       expect(onError.mock.lastCall?.[0]).toBe(errInstance);
     }
   });
+
+  test("uses pre-set cache when fetching from a completely new context", async () => {
+    const keys = ["/api", "/key"];
+    const fetcher = vi.fn().mockImplementation(async () => "new data");
+
+    const cache = new Map(),
+      initial = "old data";
+    cache.set(keys.join(""), initial);
+
+    const [makeFetcher] = nanoquery({ fetcher, cache });
+    const $store = makeFetcher(keys);
+
+    const events: any[] = [];
+    $store.subscribe((v) => events.push(v));
+    await advance();
+
+    expect(events[0]).toMatchObject({ data: initial, loading: true });
+    expect(events[events.length - 1]).toEqual({
+      loading: false,
+      data: "new data",
+    });
+  });
 });
 
 describe("refetch logic", () => {
@@ -824,6 +838,3 @@ async function advance(ms = 0) {
   await new Promise<void>((r) => r());
   await new Promise<void>((r) => r());
 }
-
-const noop = () => {};
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));

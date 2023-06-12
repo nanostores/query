@@ -6,6 +6,7 @@ import strip from "@rollup/plugin-strip";
 export default defineConfig({
   test: {
     globals: true,
+    environment: "happy-dom",
   },
   build: {
     minify: false,

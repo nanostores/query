@@ -1,20 +1,6 @@
 import { atom } from "nanostores";
 import { nanoquery } from "../main";
-
-beforeAll(() => {
-  const eventToCb: Record<string, () => void> = {};
-  vi.stubGlobal("window", globalThis);
-  vi.stubGlobal(
-    "addEventListener",
-    (name: string, cb: () => void) => (eventToCb[name] = cb)
-  );
-  vi.stubGlobal("dispatchEvent", (evt: { type: string }) => {
-    eventToCb?.[evt.type]?.();
-  });
-});
-afterEach(() => {
-  vi.restoreAllMocks();
-});
+import { delay } from "./setup";
 
 test("correct events in conditional fetcher", async () => {
   const fetcher = vi.fn().mockImplementation(async () => {
@@ -93,5 +79,3 @@ test("emulating useSyncExternalStore behavior", async () => {
   expect(events[1]).toMatchObject({ loading: true });
   expect(events[2]).toMatchObject({ loading: false, data: 1 });
 });
-
-const delay = (ms = 0) => new Promise((r) => setTimeout(r, ms));
