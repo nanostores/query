@@ -48,7 +48,7 @@ simple mocking in tests and stories.
 import { nanoquery } from '@nanostores/query';
 
 export const [createFetcherStore, createMutatorStore] = nanoquery({
-  fetcher: (...keys: string[]) => fetch(keys.join('')).then((r) => r.json()),
+  fetcher: (...keys: (string | number)[]) => fetch(keys.join('')).then((r) => r.json()),
 });
 ```
 
@@ -85,10 +85,13 @@ const Post = () => {
 export const $currentPost = createFetcherStore<Post>(['/api/post/', $currentPostId]);
 ```
 
-It accepts two arguments: **key** and **fetcher options**.
+It accepts two arguments: **key input** and **fetcher options**.
 
 ```ts
-type KeyParts = undefined | Array<ReadableAtom<string | null | undefined> | string>
+type NoKey = null | undefined | void;
+type SomeKey = string | number;
+
+type KeyInput = SomeKey | Array<SomeKey | ReadableAtom<SomeKey | NoKey>>;
 ```
 
 Under the hood, nanoquery will get the string values and pass them to your fetcher
@@ -99,7 +102,7 @@ have.
 ```ts
 type Options = {
   // The async function that actually returns the data
-  fetcher?: (...keyParts: string[]) => Promise<unknown>;
+  fetcher?: (...keyParts: (string | number)[]) => Promise<unknown>;
   // How much time should pass between running fetcher for the exact same key parts
   // default = 4s
   dedupeTime?: number;

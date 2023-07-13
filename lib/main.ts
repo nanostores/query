@@ -4,10 +4,11 @@ import { createNanoEvents } from "nanoevents";
 type Fn = () => void;
 
 type NoKey = null | undefined | void;
-export type KeyInput = string | Array<string | ReadableAtom<string | NoKey>>;
+type SomeKey = string | number;
+export type KeyInput = SomeKey | Array<SomeKey | ReadableAtom<SomeKey | NoKey>>;
 
 type Key = string;
-type KeyParts = string[];
+type KeyParts = SomeKey[];
 type KeySelector = Key | Key[] | ((key: Key) => boolean);
 
 export type Fetcher<T> = (...args: KeyParts) => Promise<T>;
@@ -380,12 +381,15 @@ export const nanoquery = ({
   ] as const;
 };
 
+function isSomeKey(key: unknown): key is SomeKey {
+  return typeof key === "string" || typeof key === "number";
+}
 const getKeyStore = (keys: KeyInput) => {
-  if (typeof keys === "string")
-    return [atom([keys, [keys] as string[]] as const), () => {}] as const;
+  if (isSomeKey(keys))
+    return [atom(["" + keys, [keys] as SomeKey[]] as const), () => {}] as const;
 
   let keyStore = atom<[Key, KeyParts] | null>(null),
-    keyParts: Array<string | NoKey> = [];
+    keyParts: Array<SomeKey | NoKey> = [];
 
   const setKeyStoreValue = () => {
     if (keyParts.some((v) => v === null || v === void 0)) {
@@ -400,7 +404,7 @@ const getKeyStore = (keys: KeyInput) => {
   for (let i = 0; i < keys.length; i++) {
     const key = keys[i];
 
-    if (typeof key === "string") {
+    if (isSomeKey(key)) {
       keyParts.push(key);
       continue;
     }

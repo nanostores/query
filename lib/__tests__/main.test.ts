@@ -26,6 +26,23 @@ describe.concurrent("fetcher tests", () => {
     expect(fetcher).toHaveBeenCalledWith(...keys);
   });
 
+  test("works with numerical keys", async () => {
+    const fetcher = vi.fn().mockImplementation(async () => true);
+
+    const keys = ["/api", "/page/", 5];
+
+    const [makeFetcher] = nanoquery();
+    const store = makeFetcher(keys, { fetcher });
+    store.listen(noop);
+    store.listen(noop);
+    store.listen(noop);
+
+    await advance();
+    expect(store.key).toBe(keys.join(""));
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(fetcher).toHaveBeenCalledWith(...keys);
+  });
+
   test("works for string-based keys", async () => {
     const fetcher = vi.fn().mockImplementation(async () => true);
 
@@ -306,7 +323,7 @@ describe.concurrent("fetcher tests", () => {
   });
 
   test("internal nanostores cache is dropped between key changes", async () => {
-    const fetcher = async (...keys: string[]) => keys[0];
+    const fetcher = async (...keys: (string | number)[]) => keys[0];
 
     const $key = atom<string | void>("1");
 
