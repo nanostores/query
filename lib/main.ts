@@ -66,7 +66,7 @@ export type MutatorStore<Data = void, Result = unknown, E = Error> = MapStore<{
   data?: Result;
   loading?: boolean;
   error?: E;
-}>;
+}> & { mutate: MutateCb<Data> };
 
 export const nanoquery = ({
   cache = new Map(),
@@ -362,6 +362,7 @@ export const nanoquery = ({
       mutate: mutate as MutateCb<Data>,
       ...notLoading,
     });
+    store.mutate = mutate as MutateCb<Data>;
     return store;
   }
 

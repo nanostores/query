@@ -600,6 +600,19 @@ describe.concurrent("mutator tests", () => {
       return pr;
     });
 
+    test(`transitions work if you're not subscribed to the store`, async () => {
+      const [, makeMutator] = nanoquery();
+      const $mutate = makeMutator<void, string>(async () => "hey");
+
+      const pr = $mutate.mutate();
+      await advance();
+      const res = $mutate.get();
+      expect(res.loading).toBeFalsy();
+      expect(res.data).toBe("hey");
+
+      return pr;
+    });
+
     test("invalidates keys; invalidation ignores dedupe; invalidation ignores cache; always invalidates after running mutation", async () => {
       let counter = 0,
         counter2 = 0;

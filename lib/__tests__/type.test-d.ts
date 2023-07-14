@@ -52,6 +52,9 @@ describe("types", () => {
     const { mutate, error, data } = $mutate.get();
 
     mutate({ msg: "" });
+    $mutate.mutate({ msg: "" });
+    // @ts-expect-error: no such argument
+    $mutate.mutate({ msg1: "" });
     expectTypeOf(error).toEqualTypeOf<Error | undefined>();
     expectTypeOf(data).toEqualTypeOf<Result | undefined>();
   });

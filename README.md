@@ -123,9 +123,7 @@ The same options can be set on the context level where you actually get the
 
 ## `createMutatorStore`
 
-Mutator basically allows for 2 main things: tell nanoquery **what data should be
-revalidated** and **optimistically change data**. From interface point of view it's
-essentially a wrapper around your async function with some added functions.
+Mutator basically allows for 2 main things: tell nanoquery **what data should be revalidated** and **optimistically change data**. From interface point of view it's essentially a wrapper around your async function with some added functions.
 
 It gets an object with 3 arguments:
 
@@ -170,6 +168,8 @@ const AddCommentForm = () => {
   );
 };
 ```
+
+You can also access the mutator function via `$addComment.mutate`—the function is the same.
 
 ## _Third returned item_
 
