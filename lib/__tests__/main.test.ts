@@ -634,7 +634,7 @@ describe.concurrent("mutator tests", () => {
       let fetcherCallCountAfterInvalidation = -1,
         fetcher2CallCountAfterInvalidation = -1;
       const mutator = vi.fn().mockImplementation(({ invalidate }) => {
-        invalidate(keyParts.join(""));
+        invalidate((key: string) => key === keyParts.join(""));
         invalidate(keyParts2.join(""));
 
         fetcherCallCountAfterInvalidation = fetcher.mock.calls.length;

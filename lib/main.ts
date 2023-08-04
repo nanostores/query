@@ -9,7 +9,7 @@ export type KeyInput = SomeKey | Array<SomeKey | ReadableAtom<SomeKey | NoKey>>;
 
 type Key = string;
 type KeyParts = SomeKey[];
-type KeySelector = Key | Key[] | ((key: Key) => boolean);
+export type KeySelector = Key | Key[] | ((key: Key) => boolean);
 
 export type Fetcher<T> = (...args: KeyParts) => Promise<T>;
 
@@ -52,7 +52,7 @@ export type FetcherStoreCreator<T = any, E = Error> = (
 
 export type ManualMutator<Data = void, Result = unknown> = (args: {
   data: Data;
-  invalidate: (key: Key) => void;
+  invalidate: (key: KeySelector) => void;
   getCacheUpdater: <T = unknown>(
     key: Key,
     shouldRevalidate?: boolean
@@ -321,7 +321,7 @@ export const nanoquery = ({
     const mutate = async (data: Data) => {
       const newMutator = (rewrittenSettings.fetcher ??
         mutator) as ManualMutator<Data, Result>;
-      const keysToInvalidate: Key[] = [];
+      const keysToInvalidate: KeySelector[] = [];
       try {
         store.set({
           error: void 0,
@@ -331,7 +331,7 @@ export const nanoquery = ({
         });
         const result = await newMutator({
           data,
-          invalidate: (key: Key) => {
+          invalidate: (key: KeySelector) => {
             // We automatically postpone key invalidation up until mutator is run
             keysToInvalidate.push(key);
           },
@@ -355,7 +355,7 @@ export const nanoquery = ({
         // We do not catch it because it's caught in `wrapMutator`.
         // But we still invalidate all keys that were invalidated during running manual
         // mutator.
-        invalidateKeys(keysToInvalidate);
+        keysToInvalidate.forEach(invalidateKeys);
       }
     };
     const store: MutatorStore<Data, Result, E> = map({

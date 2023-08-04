@@ -1,4 +1,4 @@
-import { nanoquery } from "../main";
+import { KeySelector, nanoquery } from "../main";
 
 const noop = () => null;
 
@@ -40,9 +40,10 @@ describe("types", () => {
     type Result = { res: number };
     type Error = { text: string };
     const $mutate = createMutator<Data, Result, Error>(
-      async ({ data, getCacheUpdater }) => {
+      async ({ data, getCacheUpdater, invalidate }) => {
         expectTypeOf(data).toEqualTypeOf<Data>();
         const [mutateCache, prevState] = getCacheUpdater("some-key");
+        expectTypeOf(invalidate).parameter(0).toEqualTypeOf<KeySelector>();
         expectTypeOf(prevState).toEqualTypeOf<unknown>();
         expectTypeOf(mutateCache).parameter(0).toEqualTypeOf<unknown>();
 
