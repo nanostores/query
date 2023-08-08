@@ -83,11 +83,10 @@ export const nanoquery = ({
 }: NanoqueryArgs = {}) => {
   const events = createNanoEvents<Events>();
   let focus = true;
-  subscribe("focus", () => {
-    focus = true;
-    events.emit(FOCUS);
+  subscribe("visibilitychange", () => {
+    focus = !document.hidden;
+    focus && events.emit(FOCUS);
   });
-  subscribe("blur", () => (focus = false));
   subscribe("online", () => events.emit(RECONNECT));
 
   const _refetchOnInterval = new Map<KeyInput, number>(),

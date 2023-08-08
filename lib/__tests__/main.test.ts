@@ -515,9 +515,13 @@ describe("refetch logic", () => {
     await advance();
     dispatchEvent(new Event("online"));
     await advance();
-    dispatchEvent(new Event("focus"));
+    Object.defineProperty(document, "hidden", {
+      value: false,
+      writable: true,
+    });
+    dispatchEvent(new Event("visibilitychange"));
     await advance();
-    dispatchEvent(new Event("focus"));
+    dispatchEvent(new Event("visibilitychange"));
     await advance();
 
     expect(fetcher).toHaveBeenCalledTimes(5);
@@ -541,12 +545,17 @@ describe("refetch logic", () => {
     await advance(5);
     await advance(5);
     expect(fetcher).toHaveBeenCalledTimes(3);
-    dispatchEvent(new Event("blur"));
+    Object.defineProperty(document, "hidden", {
+      value: true,
+      writable: true,
+    });
+    dispatchEvent(new Event("visibilitychange"));
     await advance(5);
     await advance(5);
     await advance(5);
+    (document as any).hidden = false;
     expect(fetcher).toHaveBeenCalledTimes(3);
-    dispatchEvent(new Event("focus"));
+    dispatchEvent(new Event("visibilitychange"));
     await advance(5);
     await advance(5);
     await advance(5);
