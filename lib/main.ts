@@ -1,4 +1,12 @@
-import { atom, map, MapStore, onStart, onStop, ReadableAtom } from "nanostores";
+import {
+  atom,
+  map,
+  MapStore,
+  onStart,
+  onStop,
+  ReadableAtom,
+  startTask,
+} from "nanostores";
 import { createNanoEvents } from "nanoevents";
 
 type Fn = () => void;
@@ -140,6 +148,7 @@ export const nanoquery = ({
       }
     }
 
+    const finishTask = startTask();
     try {
       console.log("running fetcher", key);
       const promise = fetcher!(...keyParts);
@@ -155,6 +164,7 @@ export const nanoquery = ({
       settings.onError?.(error);
       set({ data: store.value.data, error, ...notLoading });
     } finally {
+      finishTask();
       _runningFetches.delete(key);
     }
   };

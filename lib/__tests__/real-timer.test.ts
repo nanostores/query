@@ -1,6 +1,6 @@
-import { atom } from "nanostores";
+import { allTasks, atom } from "nanostores";
 import { nanoquery } from "../main";
-import { delay } from "./setup";
+import { delay, noop } from "./setup";
 
 test("correct events in conditional fetcher", async () => {
   const fetcher = vi.fn().mockImplementation(async () => {
@@ -78,4 +78,20 @@ test("emulating useSyncExternalStore behavior", async () => {
   expect(events[0]).toMatchObject({ loading: true });
   expect(events[1]).toMatchObject({ loading: true });
   expect(events[2]).toMatchObject({ loading: false, data: 1 });
+});
+
+test("adds a nanostores task when running fetchers", async () => {
+  const keys = ["/api", "/key"];
+  const fetcher = vi.fn().mockImplementation(async () => {
+    await delay(100);
+    return "123";
+  });
+
+  const [makeFetcher] = nanoquery({ fetcher });
+  const $store = makeFetcher(keys);
+  $store.subscribe(noop);
+
+  await allTasks();
+
+  expect($store.get().data).toEqual("123");
 });
