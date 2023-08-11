@@ -7,7 +7,7 @@
     "build": "pnpm test && vite build",
     "test:types": "tsc --noEmit && vitest typecheck --run",
     "test:unit": "vitest run",
-    "test:size": "size-limit",
+    "test:size": "size-limit --silent",
     "test": "pnpm run /^test:/",
     "dev:test": "vitest"
   },
