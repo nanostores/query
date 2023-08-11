@@ -6,10 +6,11 @@ beforeAll(() => {
   vi.useFakeTimers();
 });
 afterEach(() => {
+  vi.clearAllMocks();
   vi.restoreAllMocks();
 });
 
-describe.concurrent("fetcher tests", () => {
+describe("fetcher tests", () => {
   test("fetches once for multiple subscriptions", async () => {
     const fetcher = vi.fn().mockImplementation(async () => true);
 
@@ -591,8 +592,8 @@ describe("refetch logic", () => {
   });
 });
 
-describe.concurrent("mutator tests", () => {
-  describe.concurrent("mutator", () => {
+describe("mutator tests", () => {
+  describe("mutator", () => {
     test("correct transitions", async () => {
       const [, makeMutator] = nanoquery();
       const $mutate = makeMutator<void, string>(async () => "hey");
@@ -780,7 +781,7 @@ describe.concurrent("mutator tests", () => {
   });
 });
 
-describe.concurrent("global invalidator and mutator", () => {
+describe("global invalidator and mutator", () => {
   test("global invalidator works", async () => {
     const fetcher = vi.fn().mockImplementation(async () => true);
 

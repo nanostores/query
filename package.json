@@ -4,10 +4,12 @@
   "description": "Tiny remote data fetching library for Nano Stores",
   "scripts": {
     "prepublish": "pnpm build",
-    "build": "vite build",
-    "check": "tsc --noEmit && vitest typecheck --run",
-    "test": "vitest",
-    "testrun": "vitest run"
+    "build": "pnpm test && vite build",
+    "test:types": "tsc --noEmit && vitest typecheck --run",
+    "test:unit": "vitest run",
+    "test:size": "size-limit",
+    "test": "pnpm run /^test:/",
+    "dev:test": "vitest"
   },
   "keywords": [
     "nano",
@@ -38,23 +40,25 @@
     }
   },
   "dependencies": {
-    "nanoevents": "7"
+    "nanoevents": "^8.0.0"
   },
   "devDependencies": {
-    "@evilmartians/lefthook": "^1.2.6",
+    "@evilmartians/lefthook": "^1.4.8",
     "@nanostores/react": "^0.7.1",
     "@rollup/plugin-strip": "^3.0.2",
+    "@size-limit/preset-small-lib": "^8.2.6",
     "@testing-library/react": "^14.0.0",
-    "@types/react": "^18.2.7",
-    "@types/react-dom": "^18.2.4",
-    "happy-dom": "^9.20.3",
-    "nanostores": "^0.7.1",
+    "@types/react": "^18.2.20",
+    "@types/react-dom": "^18.2.7",
+    "happy-dom": "^10.9.0",
+    "nanostores": "^0.9.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "typescript": "^4.9.4",
-    "vite": "^3.0.4",
-    "vite-plugin-dts": "^1.7.1",
-    "vitest": "^0.26.2"
+    "size-limit": "^8.2.6",
+    "typescript": "^5.1.6",
+    "vite": "^4.4.9",
+    "vite-plugin-dts": "^3.5.1",
+    "vitest": "^0.34.1"
   },
   "peerDependencies": {
     "nanostores": ">0.7"
@@ -65,6 +69,15 @@
   "directories": {
     "lib": "dist"
   },
+  "size-limit": [
+    {
+      "name": "All",
+      "import": {
+        "./dist/nanoquery.js": "{ nanoquery }"
+      },
+      "limit": "1584 B"
+    }
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nanostores/query.git"

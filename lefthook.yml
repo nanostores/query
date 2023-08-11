@@ -1,7 +1,7 @@
 pre-commit:
   commands:
-    build:
-      run: pnpm testrun && pnpm check
+    tests:
+      run: pnpm test
 
 post-merge: &post-merge
   commands:
