@@ -5,7 +5,7 @@
 
 A tiny data fetcher for [Nano Stores](https://github.com/nanostores/nanostores).
 
-- **Small**. 1.58 Kb (minified and gzipped).
+- **Small**. 1.6 Kb (minified and gzipped).
 - **Familiar DX**. If you've used [`swr`](https://swr.vercel.app/) or
 [`react-query`](https://react-query-v3.tanstack.com/), you'll get the same treatment,
 but for 10-20% of the size.

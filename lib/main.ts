@@ -11,8 +11,8 @@ import { createNanoEvents } from "nanoevents";
 
 type Fn = () => void;
 
-type NoKey = null | undefined | void;
-type SomeKey = string | number;
+type NoKey = null | undefined | void | false;
+type SomeKey = string | number | true;
 export type KeyInput = SomeKey | Array<SomeKey | ReadableAtom<SomeKey | NoKey>>;
 
 type Key = string;
@@ -392,7 +392,7 @@ export const nanoquery = ({
 };
 
 function isSomeKey(key: unknown): key is SomeKey {
-  return typeof key === "string" || typeof key === "number";
+  return typeof key === "string" || typeof key === "number" || key === true;
 }
 const getKeyStore = (keys: KeyInput) => {
   if (isSomeKey(keys))
@@ -402,7 +402,7 @@ const getKeyStore = (keys: KeyInput) => {
     keyParts: Array<SomeKey | NoKey> = [];
 
   const setKeyStoreValue = () => {
-    if (keyParts.some((v) => v === null || v === void 0)) {
+    if (keyParts.some((v) => v === null || v === void 0 || v === false)) {
       keyStore.set(null);
     } else {
       keyStore.set([keyParts.join(""), keyParts as KeyParts]);
