@@ -1,4 +1,4 @@
-import { resolve } from "path";
+import { resolve, join } from "path";
 import { defineConfig } from "vitest/config";
 import dts from "vite-plugin-dts";
 import strip from "@rollup/plugin-strip";
@@ -28,6 +28,9 @@ export default defineConfig({
       }),
       apply: "build",
     },
-    dts(),
+    dts({
+      entryRoot: join(__dirname, "lib"),
+      exclude: [join(__dirname, "lib", "__tests__")],
+    }),
   ],
 });
