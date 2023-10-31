@@ -5,7 +5,7 @@
 
 A tiny data fetcher for [Nano Stores](https://github.com/nanostores/nanostores).
 
-- **Small**. 1.6 Kb (minified and gzipped).
+- **Small**. 1.63 Kb (minified and gzipped).
 - **Familiar DX**. If you've used [`swr`](https://swr.vercel.app/) or
 [`react-query`](https://react-query-v3.tanstack.com/), you'll get the same treatment,
 but for 10-20% of the size.
@@ -52,9 +52,7 @@ export const [createFetcherStore, createMutatorStore] = nanoquery({
 });
 ```
 
-Second, we create the fetcher store. `createFetcherStore` returns the usual `atom()`
-from Nano Stores, that is reactively connected to all stores passed as keys. Whenever
-the `$currentPostId` updates, `$currentPost` will call the fetcher once again.
+Second, we create the fetcher store. `createFetcherStore` returns the usual `atom()` from Nano Stores, that is reactively connected to all stores passed as keys. Whenever the `$currentPostId` updates, `$currentPost` will call the fetcher once again.
 
 ```ts
 // store/posts.ts
@@ -64,8 +62,7 @@ export const $currentPostId = atom('');
 export const $currentPost = createFetcherStore<Post>(['/api/post/', $currentPostId]);
 ```
 
-Third, just use it in your components. `createFetcherStore` returns the usual
-`atom()` from Nano Stores.
+Third, just use it in your components. `createFetcherStore` returns the usual `atom()` from Nano Stores.
 
 ```tsx
 // components/Post.tsx
@@ -91,10 +88,14 @@ It accepts two arguments: **key input** and **fetcher options**.
 type NoKey = null | undefined | void | false;
 type SomeKey = string | number | true;
 
-type KeyInput = SomeKey | Array<SomeKey | ReadableAtom<SomeKey | NoKey>>;
+type KeyInput = SomeKey | Array<SomeKey | ReadableAtom<SomeKey | NoKey> | FetcherStore>;
 ```
 
-Under the hood, nanoquery will get the `SomeKey` values and pass them to your fetcher like this: `fetcher(...keyPartsAsStrings)`. If any atom value is either `NoKey` , we never call the fetcher—this is the conditional fetching technique we have. If you had `SomeKey` and then transitioned to `NoKey`, store value will be also unset.
+Under the hood, nanoquery will get the `SomeKey` values and pass them to your fetcher like this: `fetcher(...keyParts)`. Few things to notice:
+
+- if any atom value is either `NoKey`, we never call the fetcher—this is the conditional fetching technique we have;
+- if you had `SomeKey` and then transitioned to `NoKey`, store's `data` will be also unset;
+- you can, in fact, pass another fetcher store as a dependency! It's extremely useful, when you need to create reactive chains of requests that execute one after another, but only when previous one was successful. In this case, if this fetcher store has loaded its data, its key part will be the concatenated `key` of the store. [See this example](https://stackblitz.com/edit/react-ts-9rr8p8?file=App.tsx).
 
 ```ts
 type Options = {

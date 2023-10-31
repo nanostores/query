@@ -13,7 +13,9 @@ type Fn = () => void;
 
 type NoKey = null | undefined | void | false;
 type SomeKey = string | number | true;
-export type KeyInput = SomeKey | Array<SomeKey | ReadableAtom<SomeKey | NoKey>>;
+export type KeyInput =
+  | SomeKey
+  | Array<SomeKey | ReadableAtom<SomeKey | NoKey> | FetcherStore>;
 
 type Key = string;
 type KeyParts = SomeKey[];
@@ -46,6 +48,7 @@ export type FetcherValue<T = any, E = Error> = {
 };
 
 export type FetcherStore<T = any, E = any> = MapStore<FetcherValue<T, E>> & {
+  _: Symbol;
   key?: string;
   invalidate: (...args: any[]) => void;
   mutate: (data?: T) => void;
@@ -186,6 +189,7 @@ export const nanoquery = ({
       }),
       settings = { ...globalSettings, ...fetcherSettings, fetcher };
 
+    fetcherStore._ = fetcherSymbol;
     fetcherStore.invalidate = () => {
       const { key } = fetcherStore;
       if (key) {
@@ -413,23 +417,32 @@ const getKeyStore = (keys: KeyInput) => {
   const unsubs: Array<Fn> = [];
 
   for (let i = 0; i < keys.length; i++) {
-    const key = keys[i];
+    const keyOrStore = keys[i];
 
-    if (isSomeKey(key)) {
-      keyParts.push(key);
-      continue;
+    if (isSomeKey(keyOrStore)) {
+      keyParts.push(keyOrStore);
+    } else {
+      unsubs.push(
+        keyOrStore.subscribe((newValue) => {
+          keyParts[i] = isFetcherStore(keyOrStore)
+            ? keyOrStore.value && "data" in keyOrStore.value
+              ? keyOrStore.key
+              : null
+            : (newValue as SomeKey | NoKey);
+          setKeyStoreValue();
+        })
+      );
     }
-    unsubs.push(
-      key.subscribe((newValue) => {
-        keyParts[i] = newValue;
-        setKeyStoreValue();
-      })
-    );
   }
   setKeyStoreValue();
 
   return [keyStore, () => unsubs.forEach((fn) => fn())] as const;
 };
+
+function isFetcherStore(v: ReadableAtom | FetcherStore): v is FetcherStore {
+  // @ts-expect-error
+  return v._ === fetcherSymbol;
+}
 
 const FOCUS = 1,
   RECONNECT = 2,
@@ -466,6 +479,8 @@ const testKeyAgainstSelector = (key: Key, selector: KeySelector): boolean => {
 };
 
 const getNow = () => new Date().getTime();
+
+const fetcherSymbol = Symbol();
 
 const loading = { loading: true },
   notLoading = { loading: false };

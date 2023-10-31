@@ -203,6 +203,49 @@ describe("fetcher tests", () => {
     expect(store.get()).toEqual({ data: "id1Value", loading: false });
   });
 
+  test("accepts fetcher stores as keys", async () => {
+    const $cond = atom(true);
+
+    const fetcher = vi.fn().mockImplementation(async (...keys: any[]) => {
+      await delay(100);
+      // explicitly returning undefined
+    });
+
+    const [makeFetcher] = nanoquery({ fetcher });
+
+    const $store1 = makeFetcher(["store1", $cond]),
+      $store2 = makeFetcher(["store2", $store1]);
+
+    $store2.listen(noop);
+    await advance();
+
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(fetcher).toHaveBeenCalledWith("store1", true);
+    expect($store1.value).toMatchObject({ loading: true });
+    expect($store2.value).toEqual({ loading: false });
+
+    await advance(150);
+    await advance();
+
+    expect($store1.value).toMatchObject({ loading: false });
+
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(fetcher).toHaveBeenCalledWith("store2", "store1true");
+    expect($store2.value).toMatchObject({ loading: true });
+
+    await advance(150);
+    await advance();
+
+    expect($store2.value).toMatchObject({ loading: false });
+
+    $cond.set(false);
+    await advance();
+    await advance();
+
+    expect($store1.value).toEqual({ loading: false });
+    expect($store2.value).toEqual({ loading: false });
+  });
+
   test("do not send request if it was sent before dedupe time", async () => {
     const keys = ["/api", "/key"];
 

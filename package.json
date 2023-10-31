@@ -1,6 +1,6 @@
 {
   "name": "@nanostores/query",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "description": "Tiny remote data fetching library for Nano Stores",
   "scripts": {
     "prepublish": "pnpm build",
@@ -75,7 +75,7 @@
       "import": {
         "./dist/nanoquery.js": "{ nanoquery }"
       },
-      "limit": "1600 B"
+      "limit": "1631 B"
     }
   ],
   "repository": {
