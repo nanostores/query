@@ -234,13 +234,14 @@ describe("fetcher tests", () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
-  test("nullable keys disable network fetching, but enable once are set", async () => {
+  test("nullable keys disable network fetching and unset store value, but enable once are set", async () => {
     const $id = atom<string | null>(null);
 
     const keys = ["/api", "/key/", $id];
-    const fetcher = vi
-      .fn()
-      .mockImplementation(() => new Promise((r) => r("data")));
+    const fetcher = vi.fn().mockImplementation(async () => {
+      await delay(100);
+      return "data";
+    });
 
     const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, { fetcher });
@@ -249,6 +250,14 @@ describe("fetcher tests", () => {
     expect(store.get()).toEqual({ loading: false });
     $id.set("id2");
     expect(store.get()).toMatchObject({ loading: true });
+    await advance(100);
+    await advance();
+    expect(store.get()).toEqual({ data: "data", loading: false });
+
+    $id.set(null);
+    await advance();
+    expect(store.get()).toEqual({ loading: false });
+    $id.set("id2");
     await advance();
     expect(store.get()).toEqual({ data: "data", loading: false });
   });

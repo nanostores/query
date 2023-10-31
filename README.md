@@ -88,21 +88,18 @@ export const $currentPost = createFetcherStore<Post>(['/api/post/', $currentPost
 It accepts two arguments: **key input** and **fetcher options**.
 
 ```ts
-type NoKey = null | undefined | void;
-type SomeKey = string | number;
+type NoKey = null | undefined | void | false;
+type SomeKey = string | number | true;
 
 type KeyInput = SomeKey | Array<SomeKey | ReadableAtom<SomeKey | NoKey>>;
 ```
 
-Under the hood, nanoquery will get the string values and pass them to your fetcher
-like this: `fetcher(...keyPartsAsStrings)`. If any atom value is either `null` or
-`undefined`, we never call the fetcher—this is the conditional fetching technique we
-have.
+Under the hood, nanoquery will get the `SomeKey` values and pass them to your fetcher like this: `fetcher(...keyPartsAsStrings)`. If any atom value is either `NoKey` , we never call the fetcher—this is the conditional fetching technique we have. If you had `SomeKey` and then transitioned to `NoKey`, store value will be also unset.
 
 ```ts
 type Options = {
   // The async function that actually returns the data
-  fetcher?: (...keyParts: (string | number)[]) => Promise<unknown>;
+  fetcher?: (...keyParts: SomeKey[]) => Promise<unknown>;
   // How much time should pass between running fetcher for the exact same key parts
   // default = 4s
   dedupeTime?: number;

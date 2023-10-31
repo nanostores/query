@@ -219,6 +219,7 @@ export const nanoquery = ({
           prevKeyParts = keyParts;
         } else {
           fetcherStore.key = prevKey = prevKeyParts = void 0;
+          fetcherStore.set({ ...notLoading });
         }
       });
 
