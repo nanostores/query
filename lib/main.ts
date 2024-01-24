@@ -295,8 +295,7 @@ export const nanoquery = ({
       evtUnsubs.forEach((fn) => fn());
       evtUnsubs = [];
       keyUnsub?.();
-      const int = _refetchOnInterval.get(keyInput);
-      if (int) clearInterval(int);
+      clearInterval(_refetchOnInterval.get(keyInput));
     });
 
     return fetcherStore as FetcherStore<T, E>;
