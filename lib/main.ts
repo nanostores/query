@@ -69,7 +69,7 @@ export type ManualMutator<Data = void, Result = unknown> = (args: {
     shouldRevalidate?: boolean
   ) => [(newValue?: T) => void, T | undefined];
 }) => Promise<Result>;
-type MutateCb<Data> = Data extends void
+export type MutateCb<Data> = Data extends void
   ? () => Promise<unknown>
   : (data: Data) => Promise<unknown>;
 export type MutatorStore<Data = void, Result = unknown, E = Error> = MapStore<{
