@@ -30,12 +30,12 @@ type RefetchSettings = {
   refetchOnReconnect?: boolean;
   refetchInterval?: number;
 };
-type CommonSettings<T = unknown> = {
+export type CommonSettings<T = unknown> = {
   fetcher?: Fetcher<T>;
 } & RefetchSettings &
   EventTypes;
 
-type NanoqueryArgs = {
+export type NanoqueryArgs = {
   cache?: Map<Key, any>;
 } & CommonSettings;
 
