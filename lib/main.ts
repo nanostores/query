@@ -24,8 +24,9 @@ export type KeySelector = Key | Key[] | ((key: Key) => boolean);
 export type Fetcher<T> = (...args: KeyParts) => Promise<T>;
 
 type EventTypes = { onError?: (error: any) => unknown };
+type DedupeTimeCalculator = (v: FetcherValue, lastFetchTime: number | undefined, consequentErrors: number) => number
 type RefetchSettings = {
-  dedupeTime?: number;
+  dedupeTime?: number | DedupeTimeCalculator;
   refetchOnFocus?: boolean;
   refetchOnReconnect?: boolean;
   refetchInterval?: number;
@@ -94,7 +95,8 @@ export const nanoquery = ({
 
   const _refetchOnInterval = new Map<KeyInput, number>(),
     _lastFetch = new Map<Key, number>(),
-    _runningFetches = new Map<Key, Promise<any>>();
+    _runningFetches = new Map<Key, Promise<any>>(),
+    _errorCount = new Map<Key, number>();
 
   // Used for testing to have the highest say in settings hierarchy
   let rewrittenSettings: CommonSettings = {};
@@ -123,7 +125,13 @@ export const nanoquery = ({
       });
     };
 
-    const { dedupeTime = 4000, fetcher } = {
+    const defaultDedupeTimeCalculator: DedupeTimeCalculator =
+      (v: FetcherValue, lastFetchTime: number | undefined, consequentErrors: number): number => 4000;
+
+    const {
+      dedupeTime = defaultDedupeTimeCalculator,
+      fetcher
+    } = {
       ...settings,
       ...rewrittenSettings,
     };
@@ -143,7 +151,12 @@ export const nanoquery = ({
         set({ data: cached, ...notLoading });
 
       const last = _lastFetch.get(key);
-      if (last && last + dedupeTime > now) {
+      const shouldDedupe =
+        last
+        &&
+        last + (typeof dedupeTime === 'function' ? dedupeTime(store.value, last, _errorCount.get(key) ?? 0) : dedupeTime) > now;
+
+      if (shouldDedupe) {
         // Deduping the request: it's been sent not so long ago
         console.log("deduped", key);
         return;
@@ -161,10 +174,12 @@ export const nanoquery = ({
       cache.set(key, res);
       set({ data: res, ...notLoading });
       _lastFetch.set(key, getNow());
+      _errorCount.set(key, 0);
     } catch (error: any) {
       // Possibly preserving previous cache
       settings.onError?.(error);
       set({ data: store.value.data, error, ...notLoading });
+      _errorCount.set(key, _errorCount.get(key) ?? 0 + 1);
     } finally {
       finishTask();
       _runningFetches.delete(key);
