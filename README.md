@@ -265,3 +265,30 @@ But if your store is somehow dependant on other store, but it shouldn't be refle
 ```ts
 onSet($someOutsideFactor, $specificStore.invalidate)
 ```
+
+### Custom `dedupeTime` depending on fetch success
+You can set `dedupeTime` to a function that calculates the dedupeTime for every fetch separately.
+
+The function gets the following parameters:
+- `v` the current `{data, loading, error}` of the store
+- `lastFetchTime` when the most recent fetch was last started (or completed, if it was successful)
+- `consequentErrors` how many consequent errors has this key had. Useful for e.g. exponential back-off strategies.
+
+It should return the calculated dedupeTime in ms.
+
+For example, suppose you want successful fetches to be deduped every 60 seconds, but erroneous fetches to be retried earlier.
+
+```ts
+export const $store = createFetcherStore([key1,key2],
+    {
+        dedupeTime: (v, lastFetchTime, consequentErrors): number => {
+            if (consequentErrors > 0) {
+                return 1000;
+            }
+            return defaultDedupeTime;
+        }
+     }
+)
+```
+
+
