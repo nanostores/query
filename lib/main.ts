@@ -179,7 +179,7 @@ export const nanoquery = ({
       // Possibly preserving previous cache
       settings.onError?.(error);
       set({ data: store.value.data, error, ...notLoading });
-      _errorCount.set(key, _errorCount.get(key) ?? 0 + 1);
+      _errorCount.set(key, (_errorCount.get(key) ?? 0) + 1);
     } finally {
       finishTask();
       _runningFetches.delete(key);
