@@ -3,8 +3,7 @@
   "version": "0.2.10",
   "description": "Tiny remote data fetching library for Nano Stores",
   "scripts": {
-    "pub": "pnpm build && npm publish && git push && git push --tags",
-    "prepublish": "pnpm build",
+    "pub": "pnpm test && pnpm build && npm publish && git push && git push --tags",
     "build": "vite build",
     "test:types": "tsc --noEmit && vitest typecheck --run",
     "test:unit": "vitest run",
