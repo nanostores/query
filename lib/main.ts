@@ -70,15 +70,15 @@ export type ManualMutator<Data = void, Result = unknown> = (args: {
     shouldRevalidate?: boolean
   ) => [(newValue?: T) => void, T | undefined];
 }) => Promise<Result>;
-export type MutateCb<Data> = Data extends void
-  ? () => Promise<unknown>
-  : (data: Data) => Promise<unknown>;
+export type MutateCb<Data, Result = unknown> = Data extends void
+  ? () => Promise<Result>
+  : (data: Data) => Promise<Result>;
 export type MutatorStore<Data = void, Result = unknown, E = Error> = MapStore<{
-  mutate: MutateCb<Data>;
+  mutate: MutateCb<Data, Result>;
   data?: Result;
   loading?: boolean;
   error?: E;
-}> & { mutate: MutateCb<Data> };
+}> & { mutate: MutateCb<Data, Result> };
 
 export const nanoquery = ({
   cache = new Map(),
@@ -354,7 +354,7 @@ export const nanoquery = ({
         store.set({
           error: void 0,
           data: void 0,
-          mutate: mutate as MutateCb<Data>,
+          mutate: mutate as MutateCb<Data, Result>,
           ...loading,
         });
         const result = await newMutator({
@@ -387,10 +387,10 @@ export const nanoquery = ({
       }
     };
     const store: MutatorStore<Data, Result, E> = map({
-      mutate: mutate as MutateCb<Data>,
+      mutate: mutate as MutateCb<Data, Result>,
       ...notLoading,
     });
-    store.mutate = mutate as MutateCb<Data>;
+    store.mutate = mutate as MutateCb<Data, Result>;
     return store;
   }
 

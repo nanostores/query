@@ -58,6 +58,11 @@ describe("types", () => {
     $mutate.mutate({ msg1: "" });
     expectTypeOf(error).toEqualTypeOf<Error | undefined>();
     expectTypeOf(data).toEqualTypeOf<Result | undefined>();
+
+    createMutator<Data, Result, Error>(
+      // @ts-expect-error: incorrect Result
+      async () => ({ res: "200" })
+    );
   });
 
   test("mutator accepts void data", () => {
