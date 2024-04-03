@@ -102,7 +102,7 @@ type Options = {
   // The async function that actually returns the data
   fetcher?: (...keyParts: SomeKey[]) => Promise<unknown>;
   // How much time should pass between running fetcher for the exact same key parts
-  // default = 4s
+  // default = 4000 (= 4 seconds; provide all time in milliseconds)
   dedupeTime?: number;
   // If we should revalidate the data when the window focuses
   // default = false
@@ -110,9 +110,11 @@ type Options = {
   // If we should revalidate the data when network connection restores
   // default = false
   refetchOnReconnect?: boolean;
-  // If we should run revalidation on an interval, in ms
+  // If we should run revalidation on an interval
   // default = 0, no interval
   refetchInterval?: number;
+  // Error handling for specific fetcher store. Will get whatever fetcher function threw
+  onError?: (error: any) => void;
 }
 ```
 
@@ -167,7 +169,17 @@ const AddCommentForm = () => {
 };
 ```
 
-Mutation functions only allow **for a single simultanious run**. It means, if you call `mutate` 10 times in a row, it will only actually execute once—all the rest calls will immediately return.
+`createMutatorStore` accepts an optional second argument with settings: 
+
+```ts
+type MutationOptions = {
+  // Error handling for specific fetcher store. Will get whatever mutation function threw
+  onError?: (error: any) => void;
+  // Throttles all subsequent calls to `mutate` function until the first call finishes.
+  // default: true
+  throttleCalls?: boolean;
+}
+```
 
 You can also access the mutator function via `$addComment.mutate`—the function is the same.
 
@@ -267,3 +279,11 @@ But if your store is somehow dependant on other store, but it shouldn't be refle
 ```ts
 onSet($someOutsideFactor, $specificStore.invalidate)
 ```
+
+### Error handling
+
+`nanoquery`, `createFetcherStore` and `createMutationStore` all accept an optional setting called `onError`. Global `onError` handler is called for all errors thrown from fetcher and mutation calls unless you set a local `onError` handler for a specific store (then it "overwrites" the global one).
+
+This feature is particularly handy for stuff like showing flash notifications for all errors.
+
+`onError` gets a single argument of whatever the fetch or mutate functions threw.

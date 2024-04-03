@@ -330,13 +330,19 @@ export const nanoquery = ({
   };
 
   function createMutatorStore<Data = void, Result = unknown, E = any>(
-    mutator: ManualMutator<Data, Result>
+    mutator: ManualMutator<Data, Result>,
+    opts?: { throttleCalls?: boolean; onError?: EventTypes["onError"] }
   ): MutatorStore<Data, Result, E> {
+    const { throttleCalls, onError } = opts ?? {
+      throttleCalls: true,
+      onError: globalSettings?.onError,
+    };
+
     const mutate = async (data: Data) => {
       // Adding extremely basic client-side throttling
       // Calling mutate function multiple times before previous call resolved will result
       // in void return.
-      if (store.value?.loading) return;
+      if (throttleCalls && store.value?.loading) return;
 
       const newMutator = (rewrittenSettings.fetcher ??
         mutator) as ManualMutator<Data, Result>;
@@ -367,7 +373,7 @@ export const nanoquery = ({
         store.setKey("data", result as Result);
         return result;
       } catch (error) {
-        globalSettings?.onError?.(error);
+        onError?.(error);
         store.setKey("error", error as E);
       } finally {
         store.setKey("loading", false);

@@ -764,6 +764,29 @@ describe("mutator tests", () => {
       expect(mock).toHaveBeenCalledOnce();
     });
 
+    test("client-side idempotency of mutation calls can be toggled off", async () => {
+      const [, makeMutator] = nanoquery();
+      const mock = vi.fn().mockImplementation(async () => {
+        await delay(100);
+        return "ok";
+      });
+
+      const $mutate = makeMutator<void, string>(mock, { throttleCalls: false });
+
+      expect($mutate.value!.loading).toBeFalsy();
+      for (let i = 0; i < 5; i++) {
+        $mutate.mutate();
+        expect($mutate.value!.loading).toBeTruthy();
+        await advance(20);
+      }
+
+      await advance(200);
+      expect($mutate.value!.loading).toBeFalsy();
+      expect($mutate.value!.data).toBe("ok");
+
+      expect(mock).toHaveBeenCalledTimes(5);
+    });
+
     test(`transitions work if you're not subscribed to the store`, async () => {
       const [, makeMutator] = nanoquery();
       const $mutate = makeMutator<void, string>(async () => "hey");
@@ -858,7 +881,7 @@ describe("mutator tests", () => {
       expect(store.get()).toEqual({ loading: false, data: 1 });
     });
 
-    test("onError handler is called whenever error happens", async () => {
+    test("global onError handler is called whenever error happens", async () => {
       const errInstance = new Error();
 
       const fetcher = vi.fn().mockImplementation(async () => {
@@ -877,6 +900,23 @@ describe("mutator tests", () => {
       await advance();
       expect(onErrorContext).toBeCalledTimes(1);
       expect(onErrorContext.mock.lastCall?.[0]).toBe(errInstance);
+    });
+
+    test("global onError handler is not called when local onError is set", async () => {
+      const errInstance = new Error();
+      const fetcher = vi.fn().mockImplementation(async () => {
+        throw errInstance;
+      });
+      const globalOnErrorContext = vi.fn(),
+        localOnErrorContext = vi.fn();
+
+      const [, makeMutator] = nanoquery({ onError: globalOnErrorContext });
+      const store = makeMutator(fetcher, { onError: localOnErrorContext });
+      await store.mutate();
+      await advance();
+      expect(globalOnErrorContext).toHaveBeenCalledTimes(0);
+      expect(localOnErrorContext).toHaveBeenCalledOnce();
+      expect(localOnErrorContext.mock.lastCall?.[0]).toBe(errInstance);
     });
   });
 
