@@ -741,6 +741,29 @@ describe("mutator tests", () => {
       return pr;
     });
 
+    test("client-side idempotency of mutation calls", async () => {
+      const [, makeMutator] = nanoquery();
+      const mock = vi.fn().mockImplementation(async () => {
+        await delay(100);
+        return "ok";
+      });
+
+      const $mutate = makeMutator<void, string>(mock);
+
+      expect($mutate.value!.loading).toBeFalsy();
+      for (let i = 0; i < 5; i++) {
+        $mutate.mutate();
+        expect($mutate.value!.loading).toBeTruthy();
+        await advance(20);
+      }
+
+      await advance(200);
+      expect($mutate.value!.loading).toBeFalsy();
+      expect($mutate.value!.data).toBe("ok");
+
+      expect(mock).toHaveBeenCalledOnce();
+    });
+
     test(`transitions work if you're not subscribed to the store`, async () => {
       const [, makeMutator] = nanoquery();
       const $mutate = makeMutator<void, string>(async () => "hey");

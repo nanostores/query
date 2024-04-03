@@ -333,6 +333,11 @@ export const nanoquery = ({
     mutator: ManualMutator<Data, Result>
   ): MutatorStore<Data, Result, E> {
     const mutate = async (data: Data) => {
+      // Adding extremely basic client-side throttling
+      // Calling mutate function multiple times before previous call resolved will result
+      // in void return.
+      if (store.value?.loading) return;
+
       const newMutator = (rewrittenSettings.fetcher ??
         mutator) as ManualMutator<Data, Result>;
       const keysToInvalidate: KeySelector[] = [];

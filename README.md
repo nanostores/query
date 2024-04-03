@@ -167,6 +167,8 @@ const AddCommentForm = () => {
 };
 ```
 
+Mutation functions only allow **for a single simultanious run**. It means, if you call `mutate` 10 times in a row, it will only actually execute once—all the rest calls will immediately return.
+
 You can also access the mutator function via `$addComment.mutate`—the function is the same.
 
 ## _Third returned item_
