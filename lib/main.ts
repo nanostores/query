@@ -6,6 +6,7 @@ import {
   onStop,
   ReadableAtom,
   startTask,
+  batched,
 } from "nanostores";
 import { createNanoEvents } from "nanoevents";
 
@@ -398,50 +399,75 @@ export const nanoquery = ({
 function isSomeKey(key: unknown): key is SomeKey {
   return typeof key === "string" || typeof key === "number" || key === true;
 }
+
+/**
+ * Transforming the input keys into a reactive store.
+ * Basically creates a single store out of `['/api/v1/', $postId]`.
+ */
 const getKeyStore = (keys: KeyInput) => {
   if (isSomeKey(keys))
     return [atom(["" + keys, [keys] as SomeKey[]] as const), () => {}] as const;
 
-  let keyStore = atom<[Key, KeyParts] | null>(null),
-    keyParts: Array<SomeKey | NoKey> = [];
+  /*
+  Idea is simple:
+  1. we split incoming key array into parts. Every "stable" key (not an atom) gets there
+  immediately and basically is immutable.
+  2. all atom-based keys are fed into a `batched` store. We subscribe to it and push the
+  values into appropriate indexes into `keyParts`.
+  */
+  const keyParts: (SomeKey | NoKey)[] = [];
+  const $key = atom<[Key, KeyParts] | null>(null);
+
+  const keysAsStoresToIndexes = new Map<
+    ReadableAtom<SomeKey | NoKey> | FetcherStore,
+    number
+  >();
 
   const setKeyStoreValue = () => {
     if (keyParts.some((v) => v === null || v === void 0 || v === false)) {
-      keyStore.set(null);
+      $key.set(null);
     } else {
-      keyStore.set([keyParts.join(""), keyParts as KeyParts]);
+      $key.set([keyParts.join(""), keyParts as KeyParts]);
     }
   };
 
-  const unsubs: Array<Fn> = [];
-
   for (let i = 0; i < keys.length; i++) {
     const keyOrStore = keys[i];
-
     if (isSomeKey(keyOrStore)) {
       keyParts.push(keyOrStore);
     } else {
-      unsubs.push(
-        keyOrStore.subscribe((newValue) => {
-          keyParts[i] = isFetcherStore(keyOrStore)
-            ? keyOrStore.value && "data" in keyOrStore.value
-              ? keyOrStore.key
-              : null
-            : (newValue as SomeKey | NoKey);
-          setKeyStoreValue();
-        })
-      );
+      keyParts.push(null);
+      keysAsStoresToIndexes.set(keyOrStore, i);
     }
   }
+
+  const storesAsArray = [...keysAsStoresToIndexes.keys()];
+  const $storeKeys = batched(storesAsArray, (...storeValues) => {
+    for (let i = 0; i < storeValues.length; i++) {
+      const store = storesAsArray[i],
+        partIndex = keysAsStoresToIndexes.get(store) as number;
+
+      keyParts[partIndex] = isFetcherStore(store)
+        ? store.value && "data" in store.value
+          ? store.key
+          : null
+        : (storeValues[i] as SomeKey | NoKey);
+    }
+
+    setKeyStoreValue();
+  });
+
   setKeyStoreValue();
 
-  return [keyStore, () => unsubs.forEach((fn) => fn())] as const;
+  return [$key, $storeKeys.subscribe(noop)] as const;
 };
 
 function isFetcherStore(v: ReadableAtom | FetcherStore): v is FetcherStore {
   // @ts-expect-error
   return v._ === fetcherSymbol;
 }
+
+function noop() {}
 
 const FOCUS = 1,
   RECONNECT = 2,

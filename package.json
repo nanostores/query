@@ -51,7 +51,7 @@
     "@types/react": "^18.2.20",
     "@types/react-dom": "^18.2.7",
     "happy-dom": "^10.9.0",
-    "nanostores": "^0.9.3",
+    "nanostores": "^0.10.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "size-limit": "^8.2.6",
@@ -61,7 +61,7 @@
     "vitest": "^0.34.1"
   },
   "peerDependencies": {
-    "nanostores": ">0.7"
+    "nanostores": ">0.10"
   },
   "engines": {
     "node": "^14.0.0 || ^16.0.0 || >=18.0.0"

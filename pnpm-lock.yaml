@@ -11,7 +11,7 @@ devDependencies:
     version: 1.4.8
   '@nanostores/react':
     specifier: ^0.7.1
-    version: 0.7.1(nanostores@0.9.3)(react@18.2.0)
+    version: 0.7.1(nanostores@0.10.2)(react@18.2.0)
   '@rollup/plugin-strip':
     specifier: ^3.0.2
     version: 3.0.2
@@ -31,8 +31,8 @@ devDependencies:
     specifier: ^10.9.0
     version: 10.9.0
   nanostores:
-    specifier: ^0.9.3
-    version: 0.9.3
+    specifier: ^0.10.2
+    version: 0.10.2
   react:
     specifier: ^18.2.0
     version: 18.2.0
@@ -368,14 +368,14 @@ packages:
     resolution: {integrity: sha512-9b8mPpKrfeGRuhFH5iO1iwCLeIIsV6+H1sRfxbkoGXIyQE2BTsPd9zqSqQJ+pv5sJ/hT5M1zvOFL02MnEezFug==}
     dev: true
 
-  /@nanostores/react@0.7.1(nanostores@0.9.3)(react@18.2.0):
+  /@nanostores/react@0.7.1(nanostores@0.10.2)(react@18.2.0):
     resolution: {integrity: sha512-EXQg9N4MdI4eJQz/AZLIx3hxQ6BuBmV4Q55bCd5YCSgEOAW7tGTsIZxpRXxvxLXzflNvHTBvfrDNY38TlSVBkQ==}
     engines: {node: ^16.0.0 || ^18.0.0 || >=20.0.0}
     peerDependencies:
       nanostores: ^0.9.0
       react: '>=18.0.0'
     dependencies:
-      nanostores: 0.9.3
+      nanostores: 0.10.2
       react: 18.2.0
     dev: true
 
@@ -1493,9 +1493,9 @@ packages:
       picocolors: 1.0.0
     dev: true
 
-  /nanostores@0.9.3:
-    resolution: {integrity: sha512-KobZjcVyNndNrb5DAjfs0WG0lRcZu5Q1BOrfTOxokFLi25zFrWPjg+joXC6kuDqNfSt9fQwppyjUBkRPtsL+8w==}
-    engines: {node: ^16.0.0 || ^18.0.0 || >=20.0.0}
+  /nanostores@0.10.2:
+    resolution: {integrity: sha512-Z/nqsDGQvjYTXZcVge06IS8OAJ8Lzb1jLUSAbDDomDBtlSXh88M4toUKW3iKwN+BfblEXhft0KlwJ+bgGi/Ysw==}
+    engines: {node: ^18.0.0 || >=20.0.0}
     dev: true
 
   /normalize-path@3.0.0:

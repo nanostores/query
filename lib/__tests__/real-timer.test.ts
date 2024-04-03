@@ -19,6 +19,7 @@ test("correct events in conditional fetcher", async () => {
 
   expect(events[0]).toMatchObject({ loading: false });
   $conditional.set("123");
+  await delay(0);
   expect(events[1]).toMatchObject({ loading: true });
 
   await delay(30);

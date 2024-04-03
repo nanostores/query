@@ -191,6 +191,7 @@ describe("fetcher tests", () => {
     expect(store.get()).toEqual({ data: "id1Value", loading: false });
 
     $id.set("id2");
+    await advance();
     expect(store.key).toBe("/api/key/id2");
     await advance();
     expect(store.get()).toMatchObject({ loading: true });
@@ -198,6 +199,7 @@ describe("fetcher tests", () => {
 
     expect(store.get()).toEqual({ data: "id2Value", loading: false });
     $id.set("id1");
+    await advance();
     expect(store.key).toBe("/api/key/id1");
     await advance();
     expect(store.get()).toEqual({ data: "id1Value", loading: false });
@@ -277,6 +279,62 @@ describe("fetcher tests", () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
+  test("do not send request if it was sent before dedupe time", async () => {
+    let callNum = 0;
+
+    const fetcher = vi.fn().mockImplementation(
+      () =>
+        new Promise((r) => {
+          r(`data${callNum++}`);
+        })
+    );
+
+    const [makeFetcher] = nanoquery({ dedupeTime: 1000 });
+    const $store1 = makeFetcher([1], { fetcher });
+    const unsub1 = $store1.listen(noop);
+    await advance();
+    expect($store1.value).toMatchObject({ data: "data0", loading: false });
+    await advance(5000);
+    unsub1();
+    const $store2 = makeFetcher([3], { fetcher });
+    $store2.listen(noop);
+    await advance();
+    expect($store2.value).toMatchObject({ data: "data1", loading: false });
+
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  test("changing multiple atom-based keys results in a single fetch call", async () => {
+    const fetcher = vi
+      .fn()
+      .mockImplementation(
+        (...keys: unknown[]) => new Promise((r) => r(keys.join("")))
+      );
+
+    const [makeFetcher] = nanoquery();
+
+    const $key1 = atom<string | null>(null),
+      $key2 = atom<string | null>(null),
+      $key3 = atom<string | null>(null);
+
+    const $store = makeFetcher([$key1, $key2, $key3], { fetcher });
+
+    $store.listen(noop);
+    await advance();
+    expect($store.value).toMatchObject({ loading: false });
+
+    $key1.set("key1");
+    $key2.set("key2");
+    $key3.set("key3");
+    await advance();
+
+    expect($store.value).toMatchObject({
+      loading: false,
+      data: "key1key2key3",
+    });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
   test("nullable keys disable network fetching and unset store value, but enable once are set", async () => {
     const $id = atom<string | null>(null);
 
@@ -292,6 +350,7 @@ describe("fetcher tests", () => {
 
     expect(store.get()).toEqual({ loading: false });
     $id.set("id2");
+    await advance();
     expect(store.get()).toMatchObject({ loading: true });
     await advance(100);
     await advance();
