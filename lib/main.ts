@@ -7,6 +7,7 @@ import {
   ReadableAtom,
   startTask,
   batched,
+  StoreValue,
 } from "nanostores";
 import { createNanoEvents } from "nanoevents";
 
@@ -27,9 +28,10 @@ export type Fetcher<T> = (...args: KeyParts) => Promise<T>;
 type EventTypes = { onError?: (error: any) => unknown };
 type RefetchSettings = {
   dedupeTime?: number;
-  refetchOnFocus?: boolean;
-  refetchOnReconnect?: boolean;
-  refetchInterval?: number;
+  revalidateOnFocus?: boolean;
+  revalidateOnReconnect?: boolean;
+  revalidateInterval?: number;
+  cacheLifetime?: number;
 };
 export type CommonSettings<T = unknown> = {
   fetcher?: Fetcher<T>;
@@ -37,7 +39,10 @@ export type CommonSettings<T = unknown> = {
   EventTypes;
 
 export type NanoqueryArgs = {
-  cache?: Map<Key, any>;
+  cache?: Map<
+    Key,
+    { data?: any; error?: any; created?: number; expires?: number }
+  >;
 } & CommonSettings;
 
 export type FetcherValue<T = any, E = Error> = {
@@ -50,8 +55,11 @@ export type FetcherValue<T = any, E = Error> = {
 
 export type FetcherStore<T = any, E = any> = MapStore<FetcherValue<T, E>> & {
   _: Symbol;
-  key?: string;
+  key?: Key;
+  // Signature accepts anything, but doesn't use it. It's a simplification for
+  // cases where you pass this function directly to promise resolvers, event handlers, etc.
   invalidate: (...args: any[]) => void;
+  revalidate: (...args: any[]) => void;
   mutate: (data?: T) => void;
 };
 type PrivateFetcherStore<T = any, E = any> = FetcherStore<T, E> & {
@@ -65,6 +73,7 @@ export type FetcherStoreCreator<T = any, E = Error> = (
 export type ManualMutator<Data = void, Result = unknown> = (args: {
   data: Data;
   invalidate: (key: KeySelector) => void;
+  revalidate: (key: KeySelector) => void;
   getCacheUpdater: <T = unknown>(
     key: Key,
     shouldRevalidate?: boolean
@@ -93,78 +102,105 @@ export const nanoquery = ({
   });
   subscribe("online", () => events.emit(RECONNECT));
 
+  // Leaving separate entities for these.
+  // Intervals are useless for serializing, promises are not serializable at all
   const _refetchOnInterval = new Map<KeyInput, number>(),
-    _lastFetch = new Map<Key, number>(),
     _runningFetches = new Map<Key, Promise<any>>();
 
   // Used for testing to have the highest say in settings hierarchy
   let rewrittenSettings: CommonSettings = {};
 
+  const getCachedValueByKey = (key: Key) => {
+    const fromCache = cache.get(key);
+
+    if (fromCache?.data != void 0 && (fromCache.expires || 0) > getNow()) {
+      // Handling cache lifetime
+      // Unsetting stale cache or setting fresh cache
+      return fromCache.data;
+    }
+  };
+
   const runFetcher = async (
     [key, keyParts]: [Key, KeyParts],
     store: PrivateFetcherStore,
-    settings: CommonSettings,
-    force?: true
+    settings: CommonSettings
   ) => {
     if (!focus) return;
 
     const set = (v: FetcherValue) => {
       if (store.key === key) {
-        console.log(`setting to ${v}`);
+        console.log(`[${key}] setting to ${v}`);
         store.set(v);
         events.emit(SET_CACHE, key, v, true);
       }
     };
-    const setAsLoading = () => {
-      console.log(`marking ${key} as loading`);
+    const setAsLoading = (prev?: any) => {
+      console.log(`[${key}] marking as loading; prev value:`, prev);
+      const toSet = prev === undefined ? {} : { data: prev };
       set({
-        ...store.value,
+        ...toSet,
         ...loading,
         promise: _runningFetches.get(key),
       });
     };
 
-    const { dedupeTime = 4000, fetcher } = {
+    let {
+      dedupeTime = 4000,
+      cacheLifetime = Infinity,
+      fetcher,
+    } = {
       ...settings,
       ...rewrittenSettings,
     };
+    if (cacheLifetime < dedupeTime) cacheLifetime = dedupeTime;
 
     const now = getNow();
 
     if (_runningFetches.has(key)) {
-      console.log("already runs", key);
-      if (!store.value.loading) setAsLoading();
-      // Do not run the same fetcher if previous one hasn't finished yet
+      // Do not run fetcher for the same key if previous one hasn't finished yet
+      // Remember: we can have many fetcher stores pointing to the same key
+      console.log(`[${key}] already runs, breaking`);
+      if (!store.value.loading) setAsLoading(getCachedValueByKey(key));
       return;
     }
-    if (!force) {
-      const cached = cache.get(key);
-      // Prevent exessive store updates
-      if (cached && store.value.data !== cached)
-        set({ data: cached, ...notLoading });
 
-      const last = _lastFetch.get(key);
-      if (last && last + dedupeTime > now) {
-        // Deduping the request: it's been sent not so long ago
-        console.log("deduped", key);
+    let cachedValue: any | void;
+    const fromCache = cache.get(key);
+    console.log(`[${key}] from cache:`, fromCache);
+    if (fromCache?.data != void 0) {
+      cachedValue = getCachedValueByKey(key);
+      console.log(`[${key}] cached value:`, cachedValue);
+
+      // Handling request deduplication
+      if ((fromCache.created || 0) + dedupeTime > now) {
+        console.log(`[${key}]: deduped`);
+        // Preventing excessive store updates
+        if (store.value.data != cachedValue)
+          set({ ...notLoading, data: cachedValue });
         return;
       }
     }
 
     const finishTask = startTask();
     try {
-      console.log("running fetcher", key);
+      console.log(`[${key}] running fetcher`);
       const promise = fetcher!(...keyParts);
-      _lastFetch.set(key, now);
       _runningFetches.set(key, promise);
-      setAsLoading();
+      setAsLoading(cachedValue);
       const res = await promise;
-      cache.set(key, res);
+      cache.set(key, {
+        data: res,
+        created: getNow(),
+        expires: getNow() + cacheLifetime,
+      });
       set({ data: res, ...notLoading });
-      _lastFetch.set(key, getNow());
     } catch (error: any) {
-      // Possibly preserving previous cache
       settings.onError?.(error);
+      cache.set(key, {
+        error,
+        created: getNow(),
+        expires: getNow() + cacheLifetime,
+      });
       set({ data: store.value.data, error, ...notLoading });
     } finally {
       finishTask();
@@ -195,6 +231,12 @@ export const nanoquery = ({
       const { key } = fetcherStore;
       if (key) {
         invalidateKeys(key);
+      }
+    };
+    fetcherStore.revalidate = () => {
+      const { key } = fetcherStore;
+      if (key) {
+        revalidateKeys(key);
       }
     };
     fetcherStore.mutate = (data) => {
@@ -235,33 +277,37 @@ export const nanoquery = ({
       }
 
       const {
-        refetchInterval = 0,
-        refetchOnFocus,
-        refetchOnReconnect,
+        revalidateInterval = 0,
+        revalidateOnFocus,
+        revalidateOnReconnect,
       } = settings;
       const runRefetcher = () => {
-        console.log("running refetcher", prevKey);
+        console.log(`[${prevKey}] running refetcher`);
         if (prevKey)
           runFetcher([prevKey, prevKeyParts!], fetcherStore, settings);
       };
 
-      if (refetchInterval > 0) {
+      if (revalidateInterval > 0) {
         _refetchOnInterval.set(
           keyInput,
-          setInterval(runRefetcher, refetchInterval) as unknown as number
+          setInterval(runRefetcher, revalidateInterval) as unknown as number
         );
       }
-      if (refetchOnFocus) evtUnsubs.push(events.on(FOCUS, runRefetcher));
-      if (refetchOnReconnect)
+      if (revalidateOnFocus) evtUnsubs.push(events.on(FOCUS, runRefetcher));
+      if (revalidateOnReconnect)
         evtUnsubs.push(events.on(RECONNECT, runRefetcher));
 
+      const cacheKeyChangeHandler = (keySelector: KeySelector) => {
+        if (prevKey && testKeyAgainstSelector(prevKey, keySelector)) {
+          runFetcher([prevKey, prevKeyParts!], fetcherStore, settings);
+        }
+      };
+
       evtUnsubs.push(
-        events.on(INVALIDATE_KEYS, (keySelector) => {
-          if (prevKey && testKeyAgainstSelector(prevKey, keySelector)) {
-            runFetcher([prevKey, prevKeyParts!], fetcherStore, settings, true);
-          }
-        }),
+        events.on(INVALIDATE_KEYS, cacheKeyChangeHandler),
+        events.on(REVALIDATE_KEYS, cacheKeyChangeHandler),
         events.on(SET_CACHE, (keySelector, data, full) => {
+          console.log(`[${keySelector}] setting cache: `, data);
           if (
             prevKey &&
             testKeyAgainstSelector(prevKey, keySelector) &&
@@ -302,12 +348,6 @@ export const nanoquery = ({
     return fetcherStore as FetcherStore<T, E>;
   };
 
-  const nukeKey = (key: string) => {
-    cache.delete(key);
-    _lastFetch.delete(key);
-
-    console.log("Nuking key", key);
-  };
   const iterOverCache = (
     keySelector: KeySelector,
     cb: (key: string) => void
@@ -317,13 +357,33 @@ export const nanoquery = ({
     }
   };
   const invalidateKeys = (keySelector: KeySelector) => {
-    iterOverCache(keySelector, nukeKey);
+    iterOverCache(keySelector, (key) => {
+      cache.delete(key);
+      console.log(`[${key}] nuking key`);
+    });
     events.emit(INVALIDATE_KEYS, keySelector);
+  };
+  const revalidateKeys = (keySelector: KeySelector) => {
+    console.log(`[${keySelector}] revalidating`);
+    iterOverCache(keySelector, (key) => {
+      const cached = cache.get(key);
+      if (cached) {
+        cache.set(key, { ...cached, created: -Infinity });
+        console.log(`[${key}] setting key to revalidate`);
+      }
+    });
+    events.emit(REVALIDATE_KEYS, keySelector);
   };
   const mutateCache = (keySelector: KeySelector, data?: unknown) => {
     iterOverCache(keySelector, (key) => {
-      if (data === void 0) nukeKey(key);
-      else cache.set(key, data);
+      if (data === void 0) cache.delete(key);
+      else {
+        cache.set(key, {
+          data,
+          created: getNow(),
+          expires: getNow() + (globalSettings.cacheLifetime ?? 8000),
+        });
+      }
     });
 
     events.emit(SET_CACHE, keySelector, data);
@@ -346,7 +406,20 @@ export const nanoquery = ({
 
       const newMutator = (rewrittenSettings.fetcher ??
         mutator) as ManualMutator<Data, Result>;
-      const keysToInvalidate: KeySelector[] = [];
+      const keysToInvalidate: KeySelector[] = [],
+        keysToRevalidate: KeySelector[] = [];
+
+      const safeKeySet = <K extends keyof StoreValue<typeof store>>(
+        k: K,
+        v: StoreValue<typeof store>[K]
+      ) => {
+        // If you already have unsubscribed from this mutation store, we do not
+        // want to overwrite the default unset value. We just let the set values to
+        // be forgotten forever.
+        if (store.lc) {
+          store.setKey(k, v);
+        }
+      };
       try {
         store.set({
           error: void 0,
@@ -360,33 +433,42 @@ export const nanoquery = ({
             // We automatically postpone key invalidation up until mutator is run
             keysToInvalidate.push(key);
           },
-          getCacheUpdater: <T = unknown>(key: Key, shouldInvalidate = true) => [
+          revalidate: (key: KeySelector) => {
+            // We automatically postpone key invalidation up until mutator is run
+            keysToRevalidate.push(key);
+          },
+          getCacheUpdater: <T = unknown>(key: Key, shouldRevalidate = true) => [
             (newVal?: T) => {
               mutateCache(key, newVal);
-              if (shouldInvalidate) {
-                keysToInvalidate.push(key);
+              if (shouldRevalidate) {
+                keysToRevalidate.push(key);
               }
             },
-            cache.get(key) as T | undefined,
+            cache.get(key)?.data as T | undefined,
           ],
         });
-        store.setKey("data", result as Result);
+        safeKeySet("data", result as Result);
         return result;
       } catch (error) {
         onError?.(error);
+        safeKeySet("error", error as E);
         store.setKey("error", error as E);
       } finally {
-        store.setKey("loading", false);
+        safeKeySet("loading", false);
         // We do not catch it because it's caught in `wrapMutator`.
         // But we still invalidate all keys that were invalidated during running manual
         // mutator.
         keysToInvalidate.forEach(invalidateKeys);
+        keysToRevalidate.forEach(revalidateKeys);
       }
     };
     const store: MutatorStore<Data, Result, E> = map({
       mutate: mutate as MutateCb<Data, Result>,
       ...notLoading,
     });
+    onStop(store, () =>
+      store.set({ mutate: mutate as MutateCb<Data, Result>, ...notLoading })
+    );
     store.mutate = mutate as MutateCb<Data, Result>;
     return store;
   }
@@ -403,7 +485,7 @@ export const nanoquery = ({
   return [
     createFetcherStore,
     createMutatorStore,
-    { __unsafeOverruleSettings, invalidateKeys, mutateCache },
+    { __unsafeOverruleSettings, invalidateKeys, revalidateKeys, mutateCache },
   ] as const;
 };
 
@@ -483,12 +565,14 @@ function noop() {}
 const FOCUS = 1,
   RECONNECT = 2,
   INVALIDATE_KEYS = 3,
-  SET_CACHE = 4;
+  REVALIDATE_KEYS = 4,
+  SET_CACHE = 5;
 
 type Events = {
   [FOCUS]: Fn;
   [RECONNECT]: Fn;
   [INVALIDATE_KEYS]: (keySelector: KeySelector) => void;
+  [REVALIDATE_KEYS]: (keySelector: KeySelector) => void;
   /**
    * @param value The new value. It can either be the full FetcherValue with `loading`, `error` and
    * so on, or it can be the `data` argument only. This is controlled by the `full` argument
