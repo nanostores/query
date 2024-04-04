@@ -75,7 +75,7 @@
       "import": {
         "./dist/nanoquery.js": "{ nanoquery }"
       },
-      "limit": "1930 B"
+      "limit": "2100 B"
     }
   ],
   "repository": {

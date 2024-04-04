@@ -25,6 +25,12 @@ export type KeySelector = Key | Key[] | ((key: Key) => boolean);
 
 export type Fetcher<T> = (...args: KeyParts) => Promise<T>;
 
+export type OnErrorRetry = (opts: {
+  error: any;
+  key: Key;
+  retryCount: number;
+}) => number | void | false | null | undefined;
+
 type EventTypes = { onError?: (error: any) => unknown };
 type RefetchSettings = {
   dedupeTime?: number;
@@ -32,6 +38,7 @@ type RefetchSettings = {
   revalidateOnReconnect?: boolean;
   revalidateInterval?: number;
   cacheLifetime?: number;
+  onErrorRetry?: OnErrorRetry | null | false;
 };
 export type CommonSettings<T = unknown> = {
   fetcher?: Fetcher<T>;
@@ -41,7 +48,13 @@ export type CommonSettings<T = unknown> = {
 export type NanoqueryArgs = {
   cache?: Map<
     Key,
-    { data?: any; error?: any; created?: number; expires?: number }
+    {
+      data?: any;
+      error?: any;
+      retryCount?: number;
+      created?: number;
+      expires?: number;
+    }
   >;
 } & CommonSettings;
 
@@ -104,7 +117,8 @@ export const nanoquery = ({
 
   // Leaving separate entities for these.
   // Intervals are useless for serializing, promises are not serializable at all
-  const _refetchOnInterval = new Map<KeyInput, number>(),
+  const _revalidateOnInterval = new Map<KeyInput, number>(),
+    _errorInvalidateTimeouts = new Map<Key, number>(),
     _runningFetches = new Map<Key, Promise<any>>();
 
   // Used for testing to have the highest say in settings hierarchy
@@ -112,12 +126,12 @@ export const nanoquery = ({
 
   const getCachedValueByKey = (key: Key) => {
     const fromCache = cache.get(key);
+    if (!fromCache) return [];
 
-    if (fromCache?.data != void 0 && (fromCache.expires || 0) > getNow()) {
-      // Handling cache lifetime
-      // Unsetting stale cache or setting fresh cache
-      return fromCache.data;
-    }
+    // Handling cache lifetime
+    // Unsetting stale cache or setting fresh cache
+    const cacheHit = (fromCache.expires || 0) > getNow();
+    return cacheHit ? [fromCache.data, fromCache.error] : [];
   };
 
   const runFetcher = async (
@@ -148,6 +162,7 @@ export const nanoquery = ({
       dedupeTime = 4000,
       cacheLifetime = Infinity,
       fetcher,
+      onErrorRetry = defaultOnErrorRetry,
     } = {
       ...settings,
       ...rewrittenSettings,
@@ -160,29 +175,40 @@ export const nanoquery = ({
       // Do not run fetcher for the same key if previous one hasn't finished yet
       // Remember: we can have many fetcher stores pointing to the same key
       console.log(`[${key}] already runs, breaking`);
-      if (!store.value.loading) setAsLoading(getCachedValueByKey(key));
+      if (!store.value.loading) setAsLoading(getCachedValueByKey(key)[0]);
       return;
     }
 
-    let cachedValue: any | void;
+    let cachedValue: any | void, cachedError: any | void;
     const fromCache = cache.get(key);
     console.log(`[${key}] from cache:`, fromCache);
-    if (fromCache?.data != void 0) {
-      cachedValue = getCachedValueByKey(key);
+
+    if (fromCache?.data !== void 0 || fromCache?.error) {
+      [cachedValue, cachedError] = getCachedValueByKey(key);
+
       console.log(`[${key}] cached value:`, cachedValue);
+      console.log(`[${key}] cached error:`, cachedError);
 
       // Handling request deduplication
       if ((fromCache.created || 0) + dedupeTime > now) {
         console.log(`[${key}]: deduped`);
         // Preventing excessive store updates
-        if (store.value.data != cachedValue)
-          set({ ...notLoading, data: cachedValue });
+        if (
+          store.value.data != cachedValue ||
+          store.value.error != cachedError
+        ) {
+          set({ ...notLoading, data: cachedValue, error: cachedError });
+        }
         return;
       }
     }
 
     const finishTask = startTask();
     try {
+      // Clearing timeout, because this fetcher could have been triggered earlier, say,
+      // if you have `revalidateOnInterval` below error retry timeout.
+      clearTimeout(_errorInvalidateTimeouts.get(key));
+
       console.log(`[${key}] running fetcher`);
       const promise = fetcher!(...keyParts);
       _runningFetches.set(key, promise);
@@ -196,11 +222,27 @@ export const nanoquery = ({
       set({ data: res, ...notLoading });
     } catch (error: any) {
       settings.onError?.(error);
+
+      const retryCount = (cache.get(key)?.retryCount || 0) + 1;
       cache.set(key, {
         error,
         created: getNow(),
         expires: getNow() + cacheLifetime,
+        retryCount,
       });
+
+      if (onErrorRetry) {
+        const timer = onErrorRetry({
+          error,
+          key,
+          retryCount,
+        });
+        if (timer)
+          _errorInvalidateTimeouts.set(
+            key,
+            setTimeout(() => invalidateKeys(key), timer) as unknown as number
+          );
+      }
       set({ data: store.value.data, error, ...notLoading });
     } finally {
       finishTask();
@@ -288,7 +330,7 @@ export const nanoquery = ({
       };
 
       if (revalidateInterval > 0) {
-        _refetchOnInterval.set(
+        _revalidateOnInterval.set(
           keyInput,
           setInterval(runRefetcher, revalidateInterval) as unknown as number
         );
@@ -342,7 +384,7 @@ export const nanoquery = ({
       evtUnsubs.forEach((fn) => fn());
       evtUnsubs = [];
       keyUnsub?.();
-      clearInterval(_refetchOnInterval.get(keyInput));
+      clearInterval(_revalidateOnInterval.get(keyInput));
     });
 
     return fetcherStore as FetcherStore<T, E>;
@@ -554,6 +596,17 @@ const getKeyStore = (keys: KeyInput) => {
 
   return [$key, $storeKeys.subscribe(noop)] as const;
 };
+
+/**
+ * This piece of shenanigans is copy-pasted from SWR. God be my witness I don't like
+ * all this bitwise shifting operations as they are absolutely unclear, but I'm
+ * ok to compact the code a bit.
+ */
+function defaultOnErrorRetry({ retryCount }: { retryCount: number }) {
+  return (
+    ~~((Math.random() + 0.5) * (1 << (retryCount < 8 ? retryCount : 8))) * 2000
+  );
+}
 
 function isFetcherStore(v: ReadableAtom | FetcherStore): v is FetcherStore {
   // @ts-expect-error

@@ -5,7 +5,7 @@
 
 A tiny data fetcher for [Nano Stores](https://github.com/nanostores/nanostores).
 
-- **Small**. 1.93 Kb (minified and gzipped).
+- **Small**. 2.1 Kb (minified and gzipped).
 - **Familiar DX**. If you've used [`swr`](https://swr.vercel.app/) or [`react-query`](https://react-query-v3.tanstack.com/), you'll get the same treatment, but for 10-20% of the size.
 - **Built-in cache**. `stale-while-revalidate` caching from  [HTTP RFC 5861](https://tools.ietf.org/html/rfc5861). User rarely sees unnecessary loaders or stale data.
 - **Revalidate cache**. Automaticallty revalidate on interval, refocus, network  recovery. Or just revalidate it manually.
@@ -56,10 +56,11 @@ Third, just use it in your components. `createFetcherStore` returns the usual `a
 // components/Post.tsx
 const Post = () => {
   const { data, loading } = useStore($currentPost);
-  if (loading) return <>Loading...</>;
-  if (!data) return <>Error!</>;
 
-  return <div>{data.content}</div>;
+  if (data) return <div>{data.content}</div>;
+  if (loading) return <>Loading...</>;
+  
+  return <>Error!</>;
 };
 
 ```
@@ -107,6 +108,9 @@ type Options = {
   revalidateInterval?: number;
   // Error handling for specific fetcher store. Will get whatever fetcher function threw
   onError?: (error: any) => void;
+  // A function that defines a timeout for automatic invalidation in case of an error
+  // default — set to exponential backoff strategy
+  onErrorRetry?: OnErrorRetry | null;
 }
 ```
 
@@ -230,6 +234,22 @@ So, using this example, let's try to explain different cache-related settings th
 - `revalidate` forces the `dedupeTime` for this key to be 0, meaning, the very next time anything can trigger fetch (e.g., `refetchOnInterval`), it will call fetch function. If you were on the page during revalidation, you'd see cached value during loading.
 - `invalidate` kills this cache value entirely—it's as if you never were on this page. If you were on the page during invalidation, you'd see a spinner immediately.
 
+So, the best UI, we think, comes from this snippet:
+
+```tsx
+// components/Post.tsx
+const Post = () => {
+  const { data, loading } = useStore($currentPost);
+
+  if (data) return <div>{data.content}</div>;
+  if (loading) return <>Loading...</>;
+  
+  return <>Error!</>;
+};
+```
+
+This way you actually embrace the stale-while-revalidate concept and only show spinners when there's no cache, but other than that you always fall back to cached state.
+
 ### Local state and Pagination
 
 All examples above use module-scoped stores, therefore they can only have a single
@@ -285,6 +305,8 @@ onSet($someOutsideFactor, $specificStore.invalidate)
 ### Error handling
 
 `nanoquery`, `createFetcherStore` and `createMutationStore` all accept an optional setting called `onError`. Global `onError` handler is called for all errors thrown from fetcher and mutation calls unless you set a local `onError` handler for a specific store (then it "overwrites" the global one).
+
+`nanoquery` and `createFetcherStore` both accept and argument `onErrorRetry`. It also cascades down from context to each fetcher and can be rewritten by a fetcher. By default it implements an exponential backoff strategy with an element of randomness, but you can set your own according to `OnErrorRetry` signature. If you want to disable automatic revalidation for error responses, set this value to `null`.
 
 This feature is particularly handy for stuff like showing flash notifications for all errors.
 

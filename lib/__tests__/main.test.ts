@@ -644,6 +644,97 @@ describe("fetcher tests", () => {
     await advance(100);
     expect($fetcher.value).toMatchObject({ loading: false, data: "b3" });
   });
+
+  test("error responses are deduplicated just like data ones", async () => {
+    const err = new Error();
+
+    const fetcher = vi.fn().mockImplementation(async () => {
+      await delay(10);
+      throw err;
+    });
+
+    const onErrorRetry = vi
+      .fn()
+      .mockImplementation(({ retryCount }) => retryCount * 1000);
+
+    const [makeFetcher] = nanoquery({
+      fetcher,
+      onErrorRetry,
+      dedupeTime: 100,
+    });
+    const $key = atom("a");
+    const $fetcher = makeFetcher([$key]);
+    let unsub = $fetcher.listen(noop);
+    await advance();
+
+    expect($fetcher.value).toMatchObject({ loading: true });
+    await advance(10);
+    await advance(10);
+    await advance(10);
+
+    expect($fetcher.value).toEqual({ loading: false, error: err });
+    unsub();
+    await advance(10);
+    await advance(10);
+
+    unsub = $fetcher.listen(noop);
+    await advance();
+    // Cached!
+    expect($fetcher.value).toEqual({ loading: false, error: err });
+    unsub();
+  });
+
+  test("`onErrorRetry` works", async () => {
+    const error = new Error();
+    let throwError = true;
+
+    const fetcher = vi.fn().mockImplementation(async (key) => {
+      await delay(10);
+      if (throwError) throw error;
+
+      return key;
+    });
+
+    const onErrorRetry = vi
+      .fn()
+      .mockImplementation(({ retryCount }) => retryCount * 1000);
+
+    const [makeFetcher] = nanoquery({ fetcher, onErrorRetry, dedupeTime: 0 });
+    const $fetcher = makeFetcher("/key");
+    $fetcher.listen(noop);
+
+    await advance();
+    expect($fetcher.value?.loading).toBe(true);
+    await advance(10);
+    await advance(10);
+    await advance(10);
+    expect($fetcher.value).toEqual({ loading: false, error });
+    await advance(980);
+    expect($fetcher.value?.loading).toBe(true);
+    expect($fetcher.value?.error).toBeUndefined();
+    await advance(10);
+    await advance(10);
+    expect($fetcher.value).toEqual({ loading: false, error });
+    throwError = false;
+    await advance(2000);
+    await advance();
+    await advance();
+    expect($fetcher.value).toEqual({ loading: false, data: "/key" });
+
+    throwError = true;
+    $fetcher.revalidate();
+    await advance();
+    await advance(20);
+    await advance(20);
+    expect($fetcher.value).toEqual({ loading: false, error, data: "/key" });
+    throwError = false;
+
+    // Notice that retryCount was reset!
+    await advance(980);
+    await advance(100);
+    await advance(100);
+    expect($fetcher.value).toEqual({ loading: false, data: "/key" });
+  });
 });
 
 describe("refetch logic", () => {
@@ -770,6 +861,10 @@ describe("refetch logic", () => {
     await advance(10);
     await advance(10);
     expect($store.value).toMatchObject({ loading: false, data: 2 });
+  });
+
+  test("", async () => {
+    //
   });
 });
 
