@@ -26,12 +26,12 @@ export type KeySelector = Key | Key[] | ((key: Key) => boolean);
 export type Fetcher<T> = (...args: KeyParts) => Promise<T>;
 
 export type OnErrorRetry = (opts: {
-  error: any;
+  error: unknown;
   key: Key;
   retryCount: number;
 }) => number | void | false | null | undefined;
 
-type EventTypes = { onError?: (error: any) => unknown };
+type EventTypes = { onError?: (error: unknown) => void };
 type RefetchSettings = {
   dedupeTime?: number;
   revalidateOnFocus?: boolean;
@@ -49,8 +49,8 @@ export type NanoqueryArgs = {
   cache?: Map<
     Key,
     {
-      data?: any;
-      error?: any;
+      data?: unknown;
+      error?: unknown;
       retryCount?: number;
       created?: number;
       expires?: number;
