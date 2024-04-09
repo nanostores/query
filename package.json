@@ -5,8 +5,7 @@
   "scripts": {
     "pub": "pnpm test && pnpm build && npm publish && git push && git push --tags",
     "build": "vite build",
-    "test:types": "tsc --noEmit && vitest typecheck --run",
-    "test:unit": "vitest run",
+    "test:unit": "vitest run --typecheck",
     "test:size": "size-limit --silent",
     "test": "pnpm run /^test:/",
     "dev:test": "vitest"
@@ -40,25 +39,26 @@
     }
   },
   "dependencies": {
-    "nanoevents": "^8.0.0"
+    "nanoevents": "^9.0.0"
   },
   "devDependencies": {
-    "@evilmartians/lefthook": "^1.4.8",
-    "@nanostores/react": "^0.7.1",
-    "@rollup/plugin-strip": "^3.0.2",
-    "@size-limit/preset-small-lib": "^8.2.6",
-    "@testing-library/react": "^14.0.0",
-    "@types/react": "^18.2.20",
-    "@types/react-dom": "^18.2.7",
-    "happy-dom": "^10.9.0",
-    "nanostores": "^0.10.2",
+    "@evilmartians/lefthook": "^1.6.9",
+    "@nanostores/react": "^0.7.2",
+    "@rollup/plugin-strip": "^3.0.4",
+    "@size-limit/preset-small-lib": "^11.1.2",
+    "@testing-library/react": "^14.3.0",
+    "@types/node": "^20.12.6",
+    "@types/react": "^18.2.75",
+    "@types/react-dom": "^18.2.24",
+    "happy-dom": "^14.7.1",
+    "nanostores": "^0.10.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "size-limit": "^8.2.6",
-    "typescript": "^5.1.6",
-    "vite": "^4.4.9",
-    "vite-plugin-dts": "^3.5.1",
-    "vitest": "^0.34.1"
+    "size-limit": "^11.1.2",
+    "typescript": "^5.4.4",
+    "vite": "^5.2.8",
+    "vite-plugin-dts": "^3.8.1",
+    "vitest": "^1.4.0"
   },
   "peerDependencies": {
     "nanostores": ">0.10"
@@ -75,7 +75,7 @@
       "import": {
         "./dist/nanoquery.js": "{ nanoquery }"
       },
-      "limit": "2100 B"
+      "limit": "1811 B"
     }
   ],
   "repository": {

@@ -582,11 +582,12 @@ const getKeyStore = (keys: KeyInput) => {
       const store = storesAsArray[i],
         partIndex = keysAsStoresToIndexes.get(store) as number;
 
-      keyParts[partIndex] = isFetcherStore(store)
-        ? store.value && "data" in store.value
-          ? store.key
-          : null
-        : (storeValues[i] as SomeKey | NoKey);
+      keyParts[partIndex] =
+        (store as any)._ === fetcherSymbol
+          ? store.value && "data" in (store as FetcherStore).value!
+            ? (store as FetcherStore).key
+            : null
+          : (storeValues[i] as SomeKey | NoKey);
     }
 
     setKeyStoreValue();
@@ -606,11 +607,6 @@ function defaultOnErrorRetry({ retryCount }: { retryCount: number }) {
   return (
     ~~((Math.random() + 0.5) * (1 << (retryCount < 8 ? retryCount : 8))) * 2000
   );
-}
-
-function isFetcherStore(v: ReadableAtom | FetcherStore): v is FetcherStore {
-  // @ts-expect-error
-  return v._ === fetcherSymbol;
 }
 
 function noop() {}
