@@ -191,6 +191,7 @@ describe("fetcher tests", () => {
     expect(store.get()).toEqual({ data: "id1Value", loading: false });
 
     $id.set("id2");
+    await advance();
     expect(store.key).toBe("/api/key/id2");
     await advance();
     expect(store.get()).toMatchObject({ loading: true });
@@ -198,6 +199,7 @@ describe("fetcher tests", () => {
 
     expect(store.get()).toEqual({ data: "id2Value", loading: false });
     $id.set("id1");
+    await advance();
     expect(store.key).toBe("/api/key/id1");
     await advance();
     expect(store.get()).toEqual({ data: "id1Value", loading: false });
@@ -249,15 +251,13 @@ describe("fetcher tests", () => {
   test("do not send request if it was sent before dedupe time", async () => {
     const keys = ["/api", "/key"];
 
-    const fetcher = vi
-      .fn()
-      .mockImplementation(() => new Promise((r) => r("data")));
+    const fetcher = vi.fn().mockImplementation(async () => "data");
 
     const [makeFetcher] = nanoquery();
-    const store = makeFetcher(keys, { fetcher, dedupeTime: 20 });
+    const store = makeFetcher(keys, { fetcher, dedupeTime: 200 });
     {
       const unsub = store.listen(noop);
-      await advance(10);
+      await advance();
       expect(store.get()).toEqual({ data: "data", loading: false });
       unsub();
     }
@@ -268,13 +268,69 @@ describe("fetcher tests", () => {
       expect(store.get()).toEqual({ data: "data", loading: false });
       unsub();
       expect(fetcher).toHaveBeenCalledOnce();
-      await advance(30);
     }
 
+    await advance(300);
     store.listen(noop);
     await advance();
     expect(store.get()).toEqual({ data: "data", loading: false });
     expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  test("do not send request if it was sent before dedupe time", async () => {
+    let callNum = 0;
+
+    const fetcher = vi.fn().mockImplementation(
+      () =>
+        new Promise((r) => {
+          r(`data${callNum++}`);
+        })
+    );
+
+    const [makeFetcher] = nanoquery({ dedupeTime: 1000 });
+    const $store1 = makeFetcher([1], { fetcher });
+    const unsub1 = $store1.listen(noop);
+    await advance();
+    expect($store1.value).toMatchObject({ data: "data0", loading: false });
+    await advance(5000);
+    unsub1();
+    const $store2 = makeFetcher([3], { fetcher });
+    $store2.listen(noop);
+    await advance();
+    expect($store2.value).toMatchObject({ data: "data1", loading: false });
+
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  test("changing multiple atom-based keys results in a single fetch call", async () => {
+    const fetcher = vi
+      .fn()
+      .mockImplementation(
+        (...keys: unknown[]) => new Promise((r) => r(keys.join("")))
+      );
+
+    const [makeFetcher] = nanoquery();
+
+    const $key1 = atom<string | null>(null),
+      $key2 = atom<string | null>(null),
+      $key3 = atom<string | null>(null);
+
+    const $store = makeFetcher([$key1, $key2, $key3], { fetcher });
+
+    $store.listen(noop);
+    await advance();
+    expect($store.value).toMatchObject({ loading: false });
+
+    $key1.set("key1");
+    $key2.set("key2");
+    $key3.set("key3");
+    await advance();
+
+    expect($store.value).toMatchObject({
+      loading: false,
+      data: "key1key2key3",
+    });
+    expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
   test("nullable keys disable network fetching and unset store value, but enable once are set", async () => {
@@ -292,6 +348,7 @@ describe("fetcher tests", () => {
 
     expect(store.get()).toEqual({ loading: false });
     $id.set("id2");
+    await advance();
     expect(store.get()).toMatchObject({ loading: true });
     await advance(100);
     await advance();
@@ -434,7 +491,7 @@ describe("fetcher tests", () => {
     const store = makeFetcher(keys, {
       fetcher,
       dedupeTime: 0,
-      refetchInterval: 5,
+      revalidateInterval: 5,
     });
     const unsub = store.listen(() => null);
     $id.set("");
@@ -489,31 +546,6 @@ describe("fetcher tests", () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
-  test("consecutive error does not wipe cache", async () => {
-    const keys = ["/api", "/key"];
-
-    const fetcher = vi.fn().mockImplementationOnce(async () => {
-      console.log("data fetcher");
-      return "data";
-    });
-
-    const [makeFetcher] = nanoquery();
-    const store = makeFetcher(keys, { fetcher, dedupeTime: 0 });
-    store.listen(noop);
-
-    await advance();
-    expect(store.get()).toEqual({ data: "data", loading: false });
-    fetcher.mockImplementationOnce(async () => {
-      console.log("err fetcher");
-      throw "err";
-    });
-
-    // Getting a new listener to spark a new fetch
-    store.listen(noop);
-    await advance();
-    expect(store.get()).toEqual({ error: "err", data: "data", loading: false });
-  });
-
   test("onError handler is called whenever error happens", async () => {
     const keys = ["/api", "/key"];
 
@@ -548,24 +580,160 @@ describe("fetcher tests", () => {
 
   test("uses pre-set cache when fetching from a completely new context", async () => {
     const keys = ["/api", "/key"];
-    const fetcher = vi.fn().mockImplementation(async () => "new data");
+    const fetcher = vi.fn();
 
+    const now = new Date().getTime();
     const cache = new Map(),
-      initial = "old data";
+      initial = { data: "old data", created: now, expires: now + 1000 };
     cache.set(keys.join(""), initial);
 
     const [makeFetcher] = nanoquery({ fetcher, cache });
     const $store = makeFetcher(keys);
-
-    const events: any[] = [];
-    $store.subscribe((v) => events.push(v));
+    $store.subscribe(noop);
     await advance();
 
-    expect(events[0]).toMatchObject({ data: initial, loading: true });
-    expect(events[events.length - 1]).toEqual({
-      loading: false,
-      data: "new data",
+    expect($store.value).toMatchObject({ loading: false, data: initial.data });
+    expect(fetcher).toHaveBeenCalledTimes(0);
+  });
+
+  test("`cacheLifetime` higher than `dedupeTime` leads to stale cache showing despite running fetcher function", async () => {
+    let callCount = 0;
+
+    const fetcher = vi.fn().mockImplementation(async (key) => {
+      await delay(10);
+      return key + callCount++;
     });
+    const [makeFetcher] = nanoquery({
+      fetcher,
+      cacheLifetime: 2000,
+      dedupeTime: 100,
+    });
+
+    const $key = atom("a");
+    const $fetcher = makeFetcher([$key]);
+    $fetcher.listen(noop);
+
+    await advance();
+    await advance(10);
+    await advance(10);
+    expect($fetcher.value).toMatchObject({ loading: false, data: "a0" });
+
+    $key.set("b");
+    await advance();
+    await advance(10);
+    await advance(10);
+    expect($fetcher.value).toMatchObject({ loading: false, data: "b1" });
+    await advance(100);
+    await advance(100);
+
+    // Dedupe time has passed, but cache lifetime is still ok!
+    $key.set("a");
+    await advance();
+    expect($fetcher.value).toMatchObject({ loading: true, data: "a0" });
+    await advance(100);
+    await advance(100);
+    expect($fetcher.value).toMatchObject({ loading: false, data: "a2" });
+
+    // Both dedupe time and cache lifetime are way past
+    await advance(50000);
+    $key.set("b");
+    await advance();
+    expect($fetcher.value!.loading).toBe(true);
+    expect($fetcher.value!.data).toBeUndefined();
+    await advance(100);
+    await advance(100);
+    expect($fetcher.value).toMatchObject({ loading: false, data: "b3" });
+  });
+
+  test("error responses are deduplicated just like data ones", async () => {
+    const err = new Error();
+
+    const fetcher = vi.fn().mockImplementation(async () => {
+      await delay(10);
+      throw err;
+    });
+
+    const onErrorRetry = vi
+      .fn()
+      .mockImplementation(({ retryCount }) => retryCount * 1000);
+
+    const [makeFetcher] = nanoquery({
+      fetcher,
+      onErrorRetry,
+      dedupeTime: 100,
+    });
+    const $key = atom("a");
+    const $fetcher = makeFetcher([$key]);
+    let unsub = $fetcher.listen(noop);
+    await advance();
+
+    expect($fetcher.value).toMatchObject({ loading: true });
+    await advance(10);
+    await advance(10);
+    await advance(10);
+
+    expect($fetcher.value).toEqual({ loading: false, error: err });
+    unsub();
+    await advance(10);
+    await advance(10);
+
+    unsub = $fetcher.listen(noop);
+    await advance();
+    // Cached!
+    expect($fetcher.value).toEqual({ loading: false, error: err });
+    unsub();
+  });
+
+  test("`onErrorRetry` works", async () => {
+    const error = new Error();
+    let throwError = true;
+
+    const fetcher = vi.fn().mockImplementation(async (key) => {
+      await delay(10);
+      if (throwError) throw error;
+
+      return key;
+    });
+
+    const onErrorRetry = vi
+      .fn()
+      .mockImplementation(({ retryCount }) => retryCount * 1000);
+
+    const [makeFetcher] = nanoquery({ fetcher, onErrorRetry, dedupeTime: 0 });
+    const $fetcher = makeFetcher("/key");
+    $fetcher.listen(noop);
+
+    await advance();
+    expect($fetcher.value?.loading).toBe(true);
+    await advance(10);
+    await advance(10);
+    await advance(10);
+    expect($fetcher.value).toEqual({ loading: false, error });
+    await advance(980);
+    expect($fetcher.value?.loading).toBe(true);
+    expect($fetcher.value?.error).toBeUndefined();
+    await advance(10);
+    await advance(10);
+    expect($fetcher.value).toEqual({ loading: false, error });
+    throwError = false;
+    await advance(2000);
+    await advance();
+    await advance();
+    expect($fetcher.value).toEqual({ loading: false, data: "/key" });
+
+    throwError = true;
+    $fetcher.revalidate();
+    await advance();
+    await advance(20);
+    await advance(20);
+    expect($fetcher.value).toEqual({ loading: false, error, data: "/key" });
+    throwError = false;
+
+    // Notice that retryCount was reset!
+    await advance(980);
+    await advance(100);
+    await advance(100);
+    expect($fetcher.value).toEqual({ loading: false, data: "/key" });
   });
 });
 
@@ -578,8 +746,8 @@ describe("refetch logic", () => {
     const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, {
       fetcher,
-      refetchOnReconnect: true,
-      refetchOnFocus: true,
+      revalidateOnReconnect: true,
+      revalidateOnFocus: true,
       dedupeTime: 0,
     });
     store.listen(noop);
@@ -608,7 +776,7 @@ describe("refetch logic", () => {
     const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, {
       fetcher,
-      refetchInterval: 5,
+      revalidateInterval: 5,
       dedupeTime: 0,
     });
 
@@ -644,8 +812,8 @@ describe("refetch logic", () => {
     const [makeFetcher] = nanoquery();
     const store = makeFetcher(keys, {
       fetcher,
-      refetchOnFocus: true,
-      refetchInterval: 100,
+      revalidateOnFocus: true,
+      revalidateInterval: 100,
       dedupeTime: 2e200,
     });
 
@@ -661,6 +829,42 @@ describe("refetch logic", () => {
       await advance(200);
     }
     expect(listener).toHaveBeenCalledTimes(2);
+  });
+
+  test("store doesn't reset its value after getting a revalidate/invalidate trigger if it has an active subscriber", async () => {
+    let count = 0;
+    const fetcher = vi.fn().mockImplementation(async () => {
+      await delay(10);
+      return count++;
+    });
+    const [makeFetcher] = nanoquery({
+      fetcher,
+      dedupeTime: 100,
+      cacheLifetime: 100,
+    });
+
+    const $store = makeFetcher("/key");
+    $store.listen(noop);
+    await advance(10);
+    await advance(10);
+    await advance(10);
+    expect($store.value).toMatchObject({ data: 0, loading: false });
+    $store.revalidate();
+    await advance(0);
+    expect($store.value).toMatchObject({ loading: true, data: 0 });
+    await advance(10);
+    await advance(10);
+    expect($store.value).toMatchObject({ loading: false, data: 1 });
+    $store.invalidate();
+    expect($store.value?.loading).toBe(true);
+    expect($store.value?.data).toBeUndefined();
+    await advance(10);
+    await advance(10);
+    expect($store.value).toMatchObject({ loading: false, data: 2 });
+  });
+
+  test("", async () => {
+    //
   });
 });
 
@@ -682,9 +886,70 @@ describe("mutator tests", () => {
       return pr;
     });
 
+    test("mutator unsets its value after last subscriber stops listening", async () => {
+      const [, makeMutator] = nanoquery();
+      const $mutate = makeMutator<void, string>(async () => "hey");
+      const unsub = $mutate.listen(noop);
+      await $mutate.mutate();
+      expect($mutate.value?.loading).toBeFalsy();
+      expect($mutate.value?.data).toBe("hey");
+
+      unsub();
+      expect($mutate.value?.data).toBeUndefined();
+    });
+
+    test("client-side idempotency of mutation calls", async () => {
+      const [, makeMutator] = nanoquery();
+      const mock = vi.fn().mockImplementation(async () => {
+        await delay(100);
+        return "ok";
+      });
+
+      const $mutate = makeMutator<void, string>(mock);
+      $mutate.listen(noop);
+
+      expect($mutate.value!.loading).toBeFalsy();
+      for (let i = 0; i < 5; i++) {
+        $mutate.mutate();
+        expect($mutate.value!.loading).toBeTruthy();
+        await advance(20);
+      }
+
+      await advance(200);
+      expect($mutate.value!.loading).toBeFalsy();
+      expect($mutate.value!.data).toBe("ok");
+
+      expect(mock).toHaveBeenCalledOnce();
+    });
+
+    test("client-side idempotency of mutation calls can be toggled off", async () => {
+      const [, makeMutator] = nanoquery();
+      const mock = vi.fn().mockImplementation(async () => {
+        await delay(100);
+        return "ok";
+      });
+
+      const $mutate = makeMutator<void, string>(mock, { throttleCalls: false });
+      $mutate.listen(noop);
+
+      expect($mutate.value!.loading).toBeFalsy();
+      for (let i = 0; i < 5; i++) {
+        $mutate.mutate();
+        expect($mutate.value!.loading).toBeTruthy();
+        await advance(20);
+      }
+
+      await advance(200);
+      expect($mutate.value!.loading).toBeFalsy();
+      expect($mutate.value!.data).toBe("ok");
+
+      expect(mock).toHaveBeenCalledTimes(5);
+    });
+
     test(`transitions work if you're not subscribed to the store`, async () => {
       const [, makeMutator] = nanoquery();
       const $mutate = makeMutator<void, string>(async () => "hey");
+      $mutate.listen(noop);
 
       const pr = $mutate.mutate();
       await advance();
@@ -751,10 +1016,9 @@ describe("mutator tests", () => {
 
       const $mutate = makeMutator<string>(async ({ getCacheUpdater, data }) => {
         try {
-          expect(data).toBe("hey");
           const [mutateCache, prevData] = getCacheUpdater(keyParts.join(""));
           expect(prevData).toBe(0);
-          mutateCache("mutated manually");
+          mutateCache(data);
         } catch (error) {
           console.error(error);
         }
@@ -764,11 +1028,10 @@ describe("mutator tests", () => {
       await advance(10);
       expect(store.get()).toEqual({ loading: false, data: 0 });
 
-      const { mutate } = $mutate.get();
-      await mutate("hey");
-      expect(store.get()).toMatchObject({
+      await $mutate.mutate("hey");
+      expect(store.value).toMatchObject({
         loading: true,
-        data: "mutated manually",
+        data: "hey",
       });
 
       await advance();
@@ -776,7 +1039,7 @@ describe("mutator tests", () => {
       expect(store.get()).toEqual({ loading: false, data: 1 });
     });
 
-    test("onError handler is called whenever error happens", async () => {
+    test("global onError handler is called whenever error happens", async () => {
       const errInstance = new Error();
 
       const fetcher = vi.fn().mockImplementation(async () => {
@@ -795,6 +1058,23 @@ describe("mutator tests", () => {
       await advance();
       expect(onErrorContext).toBeCalledTimes(1);
       expect(onErrorContext.mock.lastCall?.[0]).toBe(errInstance);
+    });
+
+    test("global onError handler is not called when local onError is set", async () => {
+      const errInstance = new Error();
+      const fetcher = vi.fn().mockImplementation(async () => {
+        throw errInstance;
+      });
+      const globalOnErrorContext = vi.fn(),
+        localOnErrorContext = vi.fn();
+
+      const [, makeMutator] = nanoquery({ onError: globalOnErrorContext });
+      const store = makeMutator(fetcher, { onError: localOnErrorContext });
+      await store.mutate();
+      await advance();
+      expect(globalOnErrorContext).toHaveBeenCalledTimes(0);
+      expect(localOnErrorContext).toHaveBeenCalledOnce();
+      expect(localOnErrorContext.mock.lastCall?.[0]).toBe(errInstance);
     });
   });
 

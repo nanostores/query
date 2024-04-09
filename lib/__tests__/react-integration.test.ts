@@ -38,6 +38,7 @@ test("basic conditional render", async () => {
   await delay();
   expect(result.current.loading).toBe(false);
   act(() => $key.set("123"));
+  await delay(0);
   expect(result.current.loading).toBe(true);
   await act(() => delay(25));
   expect(result.current.loading).toBe(false);

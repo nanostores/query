@@ -9,6 +9,7 @@ export default defineConfig({
     environment: "happy-dom",
   },
   build: {
+    target: "esnext",
     minify: false,
     lib: {
       entry: resolve(__dirname, "lib/main.ts"),
