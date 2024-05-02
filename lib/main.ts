@@ -636,7 +636,7 @@ type Events = {
 
 const subscribe = (name: string, fn: Fn) => {
   const isServer = typeof window === "undefined";
-  if (!isServer) {
+  if (!isServer && window.hasOwnProperty("addEventListener")) {
     addEventListener(name, fn);
   }
 };
