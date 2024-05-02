@@ -636,7 +636,8 @@ type Events = {
 
 const subscribe = (name: string, fn: Fn) => {
   const isServer = typeof window === "undefined";
-  if (!isServer) {
+  const isReactNative = typeof navigator !== "undefined" && navigator.product === "ReactNative";
+  if (!isServer && !isReactNative) {
     addEventListener(name, fn);
   }
 };
