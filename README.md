@@ -276,7 +276,7 @@ not give up the flexibility of component-level data fetching.
 
 ### Refetching and manual mutation
 
-We've already walked through all the primitives needed for refetching and mutation, but the interface is rather bizarre with all those string-based keys. Often all we actually want is to refetch _current_ key (say, you have this refresh button in the UI), ot mutate _current_ key, right?
+We've already walked through all the primitives needed for refetching and mutation, but the interface is rather bizarre with all those string-based keys. Often all we actually want is to refetch _current_ key (say, you have this refresh button in the UI), or mutate _current_ key, right?
 
 For these cases we have 3 additional things on fetcher stores:
 
