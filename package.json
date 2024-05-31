@@ -1,10 +1,10 @@
 {
   "name": "@nanostores/query",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Tiny remote data fetching library for Nano Stores",
   "scripts": {
-    "pub": "pnpm test && pnpm build && npm publish && git push && git push --tags",
-    "build": "vite build",
+    "pub": "pnpm build && npm publish && git push && git push --tags",
+    "build": "./build.sh",
     "test:unit": "vitest run --typecheck",
     "test:size": "size-limit --silent",
     "test": "pnpm run /^test:/",
@@ -13,6 +13,7 @@
   "keywords": [
     "nano",
     "react",
+    "react-native",
     "preact",
     "vue",
     "svelte",
@@ -35,6 +36,7 @@
     ".": {
       "types": "./dist/main.d.ts",
       "import": "./dist/nanoquery.js",
+      "react-native": "./dist/nanoquery.native.cjs",
       "require": "./dist/nanoquery.umd.cjs"
     }
   },
@@ -44,6 +46,7 @@
   "devDependencies": {
     "@evilmartians/lefthook": "^1.6.9",
     "@nanostores/react": "^0.7.2",
+    "@rollup/plugin-replace": "^5.0.5",
     "@rollup/plugin-strip": "^3.0.4",
     "@size-limit/preset-small-lib": "^11.1.2",
     "@testing-library/react": "^14.3.0",
@@ -61,7 +64,11 @@
     "vitest": "^1.4.0"
   },
   "peerDependencies": {
-    "nanostores": ">0.10"
+    "nanostores": ">=0.10"
+  },
+  "optionalPeerDependencies": {
+    "react-native": ">=0.70",
+    "@react-native-community/netinfo": ">=11"
   },
   "engines": {
     "node": "^14.0.0 || ^16.0.0 || >=18.0.0"
@@ -75,7 +82,7 @@
       "import": {
         "./dist/nanoquery.js": "{ nanoquery }"
       },
-      "limit": "1811 B"
+      "limit": "1862 B"
     }
   ],
   "repository": {

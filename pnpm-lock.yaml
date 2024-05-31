@@ -12,6 +12,9 @@ devDependencies:
   '@nanostores/react':
     specifier: ^0.7.2
     version: 0.7.2(nanostores@0.10.3)(react@18.2.0)
+  '@rollup/plugin-replace':
+    specifier: ^5.0.5
+    version: 5.0.5
   '@rollup/plugin-strip':
     specifier: ^3.0.4
     version: 3.0.4
@@ -412,6 +415,19 @@ packages:
     dependencies:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.17.1
+    dev: true
+
+  /@rollup/plugin-replace@5.0.5:
+    resolution: {integrity: sha512-rYO4fOi8lMaTg/z5Jb+hKnrHHVn8j2lwkqwyS4kTRhKyWOLf2wST2sWXr4WzWiTcoHTp2sTjqUbqIj2E39slKQ==}
+    engines: {node: '>=14.0.0'}
+    peerDependencies:
+      rollup: ^1.20.0||^2.0.0||^3.0.0||^4.0.0
+    peerDependenciesMeta:
+      rollup:
+        optional: true
+    dependencies:
+      '@rollup/pluginutils': 5.1.0
+      magic-string: 0.30.9
     dev: true
 
   /@rollup/plugin-strip@3.0.4:

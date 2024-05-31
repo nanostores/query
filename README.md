@@ -311,3 +311,7 @@ onSet($someOutsideFactor, $specificStore.invalidate)
 This feature is particularly handy for stuff like showing flash notifications for all errors.
 
 `onError` gets a single argument of whatever the fetch or mutate functions threw.
+
+### React Native
+
+React Native is fully supported. For `revalidateOnReconnect` to work, you need to install `@react-native-community/netinfo` package. It's optional: if you don't `reconnect` just won't trigger revalidation. The rest works as usual.
