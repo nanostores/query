@@ -38,6 +38,10 @@
       "import": "./dist/nanoquery.js",
       "react-native": "./dist/nanoquery.native.cjs",
       "require": "./dist/nanoquery.umd.cjs"
+    },
+    "./react-native": {
+      "types": "./dist/main.d.ts",
+      "require": "./dist/nanoquery.native.cjs"
     }
   },
   "dependencies": {

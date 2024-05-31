@@ -315,3 +315,9 @@ This feature is particularly handy for stuff like showing flash notifications fo
 ### React Native
 
 React Native is fully supported. For `revalidateOnReconnect` to work, you need to install `@react-native-community/netinfo` package. It's optional: if you don't `reconnect` just won't trigger revalidation. The rest works as usual.
+
+If you use [package exports](https://reactnative.dev/blog/2023/06/21/package-exports-support#enabling-package-exports-beta), you can import the library as usual. Otherwise, do this:
+
+```ts
+import { nanoquery } from "@nanostores/query/react-native";
+```
