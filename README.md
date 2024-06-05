@@ -286,6 +286,17 @@ For these cases we have 3 additional things on fetcher stores:
 
 Typically, those 3 are more than enough to make all look very good.
 
+### Lazy fetcher
+
+Sometimes you don't want a store, you just want an async function that's gonna handle the errors and leverage the cache (perform cache lookup, save data in there upon successful execution, etc.).
+
+For that case use `fetcherStore.fetch` function. It will always resolve with the same data type as store itself (`error` and `data` only).
+
+Few gotchas:
+
+- it will execute against currently set keys (no way to customize them for the call);
+- it will still leverage deduplication.
+
 ### Dependencies, but not in keys
 
 Let's say, you have a dependency for your fetcher, but you don't want it to be in your fetcher keys. For example, this could be your `userId`—that would be a hassle to put it _everywhere_, but you need it, because once you change your user, you don't want to have stale cache from the previous user.

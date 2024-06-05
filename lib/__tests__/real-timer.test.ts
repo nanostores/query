@@ -96,3 +96,36 @@ test("adds a nanostores task when running fetchers", async () => {
 
   expect($store.get().data).toEqual("123");
 });
+
+test("lazy fetching works", async () => {
+  const keys = ["/api", "/key"];
+  let shouldError = false;
+  const fetcher = vi
+    .fn()
+    .mockImplementation(
+      () =>
+        new Promise<string>((resolve, reject) =>
+          setTimeout(() => (shouldError ? reject("err") : resolve("ok")), 10)
+        )
+    );
+
+  const [makeFetcher] = nanoquery({ dedupeTime: 30, cacheLifetime: 30 });
+  const $store = makeFetcher<string, string>(keys, { fetcher });
+
+  let res = await $store.fetch();
+  expect(res).toEqual({ data: "ok" });
+  expect(fetcher).toHaveBeenCalledOnce();
+
+  await $store.fetch();
+  await $store.fetch();
+  await $store.fetch();
+  expect(fetcher).toHaveBeenCalledOnce();
+
+  await delay(30);
+
+  shouldError = true;
+
+  res = await $store.fetch();
+  expect(res).toEqual({ error: "err" });
+  expect(fetcher).toHaveBeenCalledTimes(2);
+});

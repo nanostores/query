@@ -67,6 +67,8 @@ export type FetcherValue<T = any, E = Error> = {
   promise?: Promise<T>;
 };
 
+type LazyFetchValue<T = any, E = any> = { data: T } | { error: E };
+
 export type FetcherStore<T = any, E = any> = MapStore<FetcherValue<T, E>> & {
   _: Symbol;
   key?: Key;
@@ -75,6 +77,7 @@ export type FetcherStore<T = any, E = any> = MapStore<FetcherValue<T, E>> & {
   invalidate: (...args: any[]) => void;
   revalidate: (...args: any[]) => void;
   mutate: (data?: T) => void;
+  fetch: () => Promise<LazyFetchValue<T, E>>;
 };
 type PrivateFetcherStore<T = any, E = any> = FetcherStore<T, E> & {
   value: FetcherValue<T, E>;
@@ -292,6 +295,15 @@ export const nanoqueryFactory = ([
         if (key) {
           mutateCache(key, data);
         }
+      };
+      fetcherStore.fetch = async () => {
+        let resolve: (value: LazyFetchValue) => void;
+        const promise = new Promise<LazyFetchValue>((r) => (resolve = r));
+        const unsub = fetcherStore.listen(({ error, data }) => {
+          if (error) resolve({ error });
+          if (data) resolve({ data });
+        });
+        return promise.finally(unsub);
       };
 
       let keysInternalUnsub: Fn,
