@@ -1,6 +1,6 @@
 {
   "name": "@nanostores/query",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Tiny remote data fetching library for Nano Stores",
   "scripts": {
     "pub": "pnpm build && npm publish && git push && git push --tags",
