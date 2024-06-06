@@ -106,6 +106,18 @@ export type MutatorStore<Data = void, Result = unknown, E = Error> = MapStore<{
   error?: E;
 }> & { mutate: MutateCb<Data, Result> };
 
+/**
+ * This piece of shenanigans is copy-pasted from SWR. God be my witness I don't like
+ * all this bitwise shifting operations as they are absolutely unclear, but I'm
+ * ok to compact the code a bit.
+ */
+export function defaultOnErrorRetry({ retryCount }: { retryCount: number }) {
+  return (
+    ~~((Math.random() + 0.5) * (1 << (retryCount < 8 ? retryCount : 8))) *
+    2000
+  );
+}
+
 export const nanoqueryFactory = ([
   isAppVisible,
   visibilityChangeSubscribe,
@@ -249,7 +261,7 @@ export const nanoqueryFactory = ([
           if (timer)
             _errorInvalidateTimeouts.set(
               key,
-              setTimeout(() => invalidateKeys(key), timer) as unknown as number
+              setTimeout(() => revalidateKeys(key), timer) as unknown as number
             );
         }
         set({ data: store.value.data, error, ...notLoading });
@@ -621,18 +633,6 @@ export const nanoqueryFactory = ([
 
     return [$key, $storeKeys.subscribe(noop)] as const;
   };
-
-  /**
-   * This piece of shenanigans is copy-pasted from SWR. God be my witness I don't like
-   * all this bitwise shifting operations as they are absolutely unclear, but I'm
-   * ok to compact the code a bit.
-   */
-  function defaultOnErrorRetry({ retryCount }: { retryCount: number }) {
-    return (
-      ~~((Math.random() + 0.5) * (1 << (retryCount < 8 ? retryCount : 8))) *
-      2000
-    );
-  }
 
   function noop() {}
 
