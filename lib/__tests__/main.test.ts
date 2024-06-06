@@ -708,13 +708,19 @@ describe("fetcher tests", () => {
     await advance(10);
     await advance(10);
     await advance(10);
+    expect(onErrorRetry).toBeCalledTimes(1);
+    expect(onErrorRetry).toHaveBeenLastCalledWith(expect.objectContaining({ retryCount: 1 }));
     expect($fetcher.value).toEqual({ loading: false, error });
     await advance(980);
     expect($fetcher.value?.loading).toBe(true);
     expect($fetcher.value?.error).toBeUndefined();
     await advance(10);
     await advance(10);
+    expect(onErrorRetry).toBeCalledTimes(2);
+    expect(onErrorRetry).toHaveBeenLastCalledWith(expect.objectContaining({ retryCount: 2 }));
     expect($fetcher.value).toEqual({ loading: false, error });
+
+    onErrorRetry.mockClear();
     throwError = false;
     await advance(2000);
     await advance();
@@ -726,6 +732,8 @@ describe("fetcher tests", () => {
     await advance();
     await advance(20);
     await advance(20);
+    expect(onErrorRetry).toBeCalledTimes(1);
+    expect(onErrorRetry).toHaveBeenLastCalledWith(expect.objectContaining({ retryCount: 1 }));
     expect($fetcher.value).toEqual({ loading: false, error, data: "/key" });
     throwError = false;
 
