@@ -314,8 +314,8 @@ export const nanoqueryFactory = ([
         let resolve: (value: LazyFetchValue) => void;
         const promise = new Promise<LazyFetchValue>((r) => (resolve = r));
         const unsub = fetcherStore.listen(({ error, data }) => {
-          if (error) resolve({ error });
-          if (data) resolve({ data });
+          if (error !== undefined) resolve({ error });
+          if (data !== undefined) resolve({ data });
         });
         return promise.finally(unsub);
       };
