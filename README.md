@@ -295,7 +295,8 @@ For that case use `fetcherStore.fetch` function. It will always resolve with the
 Few gotchas:
 
 - it will execute against currently set keys (no way to customize them for the call);
-- it will still leverage deduplication.
+- it will still leverage deduplication;
+- underlying fetcher function cannot resolve or reject with `undefined` as their value. This will lead to hanging promises.
 
 ### Dependencies, but not in keys
 
