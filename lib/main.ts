@@ -16,6 +16,6 @@ export type {
   MutatorStore,
 } from "./factory";
 
-export { defaultOnErrorRetry } from './factory';
+export { defaultOnErrorRetry as onErrorRetry } from "./factory";
 
 export const nanoquery = nanoqueryFactory(browserCompat);

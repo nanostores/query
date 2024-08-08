@@ -113,8 +113,7 @@ export type MutatorStore<Data = void, Result = unknown, E = Error> = MapStore<{
  */
 export function defaultOnErrorRetry({ retryCount }: { retryCount: number }) {
   return (
-    ~~((Math.random() + 0.5) * (1 << (retryCount < 8 ? retryCount : 8))) *
-    2000
+    ~~((Math.random() + 0.5) * (1 << (retryCount < 8 ? retryCount : 8))) * 2000
   );
 }
 
@@ -261,7 +260,10 @@ export const nanoqueryFactory = ([
           if (timer)
             _errorInvalidateTimeouts.set(
               key,
-              setTimeout(() => revalidateKeys(key), timer) as unknown as number
+              setTimeout(() => {
+                invalidateKeys(key);
+                cache.set(key, { retryCount });
+              }, timer) as unknown as number
             );
         }
         set({ data: store.value.data, error, ...notLoading });
