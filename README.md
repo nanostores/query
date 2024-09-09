@@ -138,8 +138,8 @@ export const $addComment = createMutatorStore<Comment>(
     const [updateCache, post] = getCacheUpdater(`/api/post/${comment.postId}`);
     updateCache({ ...post, comments: [...post.comments, comment] });
 
-    // Even though `fetch` is called after calling `invalidate`, we will only
-    // invalidate the keys after `fetch` resolves
+    // Even though `fetch` is called after calling `revalidate`, we will only
+    // revalidate the keys after `fetch` resolves
     return fetch('…')
   }
 );
