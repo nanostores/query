@@ -36,7 +36,7 @@ First, we define the context. It allows us to share the default fetcher implemen
 import { nanoquery } from '@nanostores/query';
 
 export const [createFetcherStore, createMutatorStore] = nanoquery({
-  fetcher: (...keys: (string | number)[]) => fetch(keys.join('')).then((r) => r.json()),
+  fetcher: (...keys) => fetch(keys.join('')).then((r) => r.json()),
 });
 ```
 
