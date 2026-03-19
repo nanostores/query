@@ -317,6 +317,11 @@ export const nanoqueryFactory = ([
 
       let evtUnsubs: Fn[] = [];
 
+      const handleNewListener = () => {
+        if (prevKey)
+          runFetcher([prevKey, prevKeyParts!], fetcherStore, settings);
+      };
+
       onStart(fetcherStore, () => {
         const firstRun = !keysInternalUnsub;
         [keyStore, keysInternalUnsub] = getKeyStore(keyInput);
@@ -344,20 +349,16 @@ export const nanoqueryFactory = ([
           revalidateOnFocus,
           revalidateOnReconnect,
         } = settings;
-        const runRefetcher = () => {
-          if (prevKey)
-            runFetcher([prevKey, prevKeyParts!], fetcherStore, settings);
-        };
 
         if (revalidateInterval > 0) {
           _revalidateOnInterval.set(
             keyInput,
-            setInterval(runRefetcher, revalidateInterval) as unknown as number
+            setInterval(handleNewListener, revalidateInterval) as unknown as number
           );
         }
-        if (revalidateOnFocus) evtUnsubs.push(events.on(FOCUS, runRefetcher));
+        if (revalidateOnFocus) evtUnsubs.push(events.on(FOCUS, handleNewListener));
         if (revalidateOnReconnect)
-          evtUnsubs.push(events.on(RECONNECT, runRefetcher));
+          evtUnsubs.push(events.on(RECONNECT, handleNewListener));
 
         const cacheKeyChangeHandler = (keySelector: KeySelector) => {
           if (prevKey && testKeyAgainstSelector(prevKey, keySelector)) {
@@ -382,11 +383,6 @@ export const nanoqueryFactory = ([
           })
         );
       });
-
-      const handleNewListener = () => {
-        if (prevKey && prevKeyParts)
-          runFetcher([prevKey, prevKeyParts], fetcherStore, settings);
-      };
 
       // Replicating the behavior of .subscribe
       const originListen = fetcherStore.listen;

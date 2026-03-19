@@ -10,3 +10,4 @@
 {"run":9,"commit":"db91032","metric":1906,"metrics":{"raw_bytes":11891},"status":"keep","description":"Simplify testKeyAgainstSelector using .call duck-typing + [].concat — saves 2 bytes","timestamp":1773917754440,"segment":0,"confidence":1}
 {"run":10,"commit":"db91032","metric":1906,"metrics":{"raw_bytes":11874},"status":"discard","description":"Simplify keyParts null check with == null — same brotli size","timestamp":1773917790942,"segment":0,"confidence":1}
 {"run":11,"commit":"f5df43e","metric":1893,"metrics":{"raw_bytes":11809},"status":"keep","description":"Shorten error message + console.warn string — saves 13 bytes total","timestamp":1773917839056,"segment":0,"confidence":7.5}
+{"run":12,"commit":"e182b4b","metric":1880,"metrics":{"raw_bytes":11710},"status":"keep","description":"Remove console.warn in __unsafeOverruleSettings + Error() without new — saves 13 bytes","timestamp":1773917891594,"segment":0,"confidence":11.2}
