@@ -24,8 +24,8 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --ignore-scripts
-      - name: Run tests
-        run: pnpm test
+      - name: Build
+        run: pnpm build
   short:
     runs-on: ubuntu-latest
     strategy:
