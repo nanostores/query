@@ -629,7 +629,7 @@ export const nanoqueryFactory = ([
       ? (selector as Function)(key)
       : ([] as any[]).concat(selector).includes(key);
 
-  const getNow = () => new Date().getTime();
+  const getNow = () => +new Date();
 
   const fetcherSymbol = {};
 

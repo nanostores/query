@@ -24,3 +24,4 @@
 {"run":23,"commit":"ed35648","metric":1850,"metrics":{"raw_bytes":11480},"status":"discard","description":"Simplify keyParts null check again — still worse brotli (+5)","timestamp":1773918436613,"segment":0,"confidence":2.423076923076923}
 {"run":24,"commit":"df811f1","metric":1840,"metrics":{"raw_bytes":11456},"status":"keep","description":"Remove explicit void 0 properties in mutator store.set() — saves 5 bytes","timestamp":1773918468687,"segment":0,"confidence":2.4285714285714284}
 {"run":25,"commit":"63e1206","metric":1839,"metrics":{"raw_bytes":11450},"status":"keep","description":"Replace Symbol() with {} for fetcherSymbol — saves 1 byte brotli","timestamp":1773918524935,"segment":0,"confidence":2.3}
+{"run":26,"commit":"2afb5b4","metric":1834,"metrics":{"raw_bytes":11420},"status":"keep","description":"Convert setKeyStoreValue if/else to ternary expression — saves 5 bytes","timestamp":1773918565976,"segment":0,"confidence":2.4262295081967213}
