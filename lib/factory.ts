@@ -397,11 +397,10 @@ export const nanoqueryFactory = ([
     const iterOverCache = (
       keySelector: KeySelector,
       cb: (key: string) => void
-    ) => {
-      for (const key of cache.keys()) {
+    ) =>
+      cache.forEach((_, key) => {
         if (testKeyAgainstSelector(key, keySelector)) cb(key);
-      }
-    };
+      });
     const invalidateKeys = (keySelector: KeySelector) => {
       iterOverCache(keySelector, (key) => {
         cache.delete(key);

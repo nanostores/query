@@ -41,3 +41,4 @@
 {"run":40,"commit":"9ec6fb3","metric":1809,"metrics":{"raw_bytes":11150},"status":"discard","description":"Replace if (shouldRevalidate) with && — same brotli","timestamp":1773919373440,"segment":0,"confidence":4.040816326530612}
 {"run":41,"commit":"9ec6fb3","metric":1816,"metrics":{"raw_bytes":11192},"status":"discard","description":"Inline setAsLoading — worse brotli (+7), unique code paths compress poorly","timestamp":1773919426776,"segment":0,"confidence":3.96}
 {"run":42,"commit":"f6e07c2","metric":1800,"metrics":{"raw_bytes":11117},"status":"keep","description":"Replace for loop with forEach in getKeyStore — saves 9 bytes, crosses 1800!","timestamp":1773919492643,"segment":0,"confidence":4.235294117647059}
+{"run":43,"commit":"55f73d3","metric":1795,"metrics":{"raw_bytes":11093},"status":"keep","description":"Replace for loop with forEach in batched callback — saves 5 bytes","timestamp":1773919537328,"segment":0,"confidence":4.035714285714286}
