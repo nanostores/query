@@ -560,13 +560,12 @@ export const nanoqueryFactory = ([
       number
     >();
 
-    const setKeyStoreValue = () => {
-      if (keyParts.some((v) => v === null || v === void 0 || v === false)) {
-        $key.set(null);
-      } else {
-        $key.set([keyParts.join(""), keyParts as KeyParts]);
-      }
-    };
+    const setKeyStoreValue = () =>
+      $key.set(
+        keyParts.some((v) => v === null || v === void 0 || v === false)
+          ? null
+          : [keyParts.join(""), keyParts as KeyParts]
+      );
 
     for (let i = 0; i < keys.length; i++) {
       const keyOrStore = keys[i];
