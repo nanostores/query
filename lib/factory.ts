@@ -646,11 +646,10 @@ export const nanoqueryFactory = ([
     ) => void;
   };
 
-  const testKeyAgainstSelector = (key: Key, selector: KeySelector): boolean => {
-    if (Array.isArray(selector)) return selector.includes(key);
-    else if (typeof selector === "function") return selector(key);
-    else return key === selector;
-  };
+  const testKeyAgainstSelector = (key: Key, selector: KeySelector): boolean =>
+    (selector as Function).call
+      ? (selector as Function)(key)
+      : ([] as any[]).concat(selector).includes(key);
 
   const getNow = () => new Date().getTime();
 
