@@ -317,7 +317,6 @@ export const nanoqueryFactory = ([
       };
 
       onStart(fetcherStore, () => {
-        const firstRun = !keysInternalUnsub;
         [keyStore, keysInternalUnsub] = getKeyStore(keyInput);
         keyUnsub = keyStore.subscribe((currentKeys) => {
           if (currentKeys) {
@@ -330,12 +329,6 @@ export const nanoqueryFactory = ([
             fetcherStore.set({ ...notLoading });
           }
         });
-
-        const currentKeyValue = keyStore.get();
-        if (currentKeyValue) {
-          [prevKey, prevKeyParts] = currentKeyValue;
-          if (firstRun) handleNewListener();
-        }
 
         const {
           revalidateInterval = 0,

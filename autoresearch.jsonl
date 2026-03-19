@@ -47,3 +47,4 @@
 {"run":46,"commit":"b5e0d39","metric":1792,"metrics":{"raw_bytes":11056},"status":"discard","description":"Inline __unsafeOverruleSettings in return — worse brotli (+6)","timestamp":1773919644254,"segment":0,"confidence":4}
 {"run":47,"commit":"b5e0d39","metric":1787,"metrics":{"raw_bytes":11076},"status":"discard","description":"Convert defaultOnErrorRetry to arrow function — +1 byte","timestamp":1773919767502,"segment":0,"confidence":4.066666666666666}
 {"run":48,"commit":"0284ac0","metric":1782,"metrics":{"raw_bytes":11091},"status":"keep","description":"Convert createMutatorStore from function declaration to arrow — saves 4 bytes","timestamp":1773919817844,"segment":0,"confidence":4.131147540983607}
+{"run":49,"commit":"5255917","metric":1778,"metrics":{"raw_bytes":11084},"status":"keep","description":"Convert isSomeKey and noop from function to arrow — saves 4 bytes","timestamp":1773919846628,"segment":0,"confidence":4.193548387096774}
