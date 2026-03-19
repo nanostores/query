@@ -457,12 +457,8 @@ export const nanoqueryFactory = ([
           });
           const result = await newMutator({
             data,
-            invalidate: (key: KeySelector) => {
-              keysToInvalidate.push(key);
-            },
-            revalidate: (key: KeySelector) => {
-              keysToRevalidate.push(key);
-            },
+            invalidate: keysToInvalidate.push.bind(keysToInvalidate),
+            revalidate: keysToRevalidate.push.bind(keysToRevalidate),
             getCacheUpdater: <T = unknown>(
               key: Key,
               shouldRevalidate = true
