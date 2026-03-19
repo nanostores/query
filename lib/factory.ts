@@ -18,11 +18,11 @@ type NoKey = null | undefined | void | false;
 type SomeKey = string | number | true;
 export type KeyInput =
   | SomeKey
-  | Array<SomeKey | ReadableAtom<SomeKey | NoKey> | FetcherStore>;
+  | ReadonlyArray<SomeKey | ReadableAtom<SomeKey | NoKey> | FetcherStore>;
 
 type Key = string;
-type KeyParts = SomeKey[];
-export type KeySelector = Key | Key[] | ((key: Key) => boolean);
+type KeyParts = ReadonlyArray<SomeKey>;
+export type KeySelector = Key | ReadonlyArray<Key> | ((key: Key) => boolean);
 
 export type Fetcher<T> = (...args: KeyParts) => Promise<T>;
 
@@ -74,8 +74,8 @@ export type FetcherStore<T = any, E = any> = MapStore<FetcherValue<T, E>> & {
   key?: Key;
   // Signature accepts anything, but doesn't use it. It's a simplification for
   // cases where you pass this function directly to promise resolvers, event handlers, etc.
-  invalidate: (...args: any[]) => void;
-  revalidate: (...args: any[]) => void;
+  invalidate: (...args: ReadonlyArray<any>) => void;
+  revalidate: (...args: ReadonlyArray<any>) => void;
   mutate: (data?: T) => void;
   fetch: () => Promise<LazyFetchValue<T, E>>;
 };
