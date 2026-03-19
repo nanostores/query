@@ -468,8 +468,6 @@ export const nanoqueryFactory = ([
         };
         try {
           store.set({
-            error: void 0,
-            data: void 0,
             mutate: mutate as MutateCb<Data, Result>,
             ...loading,
           });
