@@ -1,11 +1,7 @@
 import { PlatformCompat } from "./type";
 
-const subscribe = (name: string, fn: () => void) => {
-  const isServer = typeof window === "undefined";
-  if (!isServer) {
-    addEventListener(name, fn);
-  }
-};
+const subscribe = (name: string, fn: () => void) =>
+  typeof window !== "undefined" && addEventListener(name, fn);
 
 export const browserCompat: PlatformCompat = [
   () => !document.hidden,
