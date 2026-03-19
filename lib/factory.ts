@@ -520,7 +520,7 @@ export const nanoqueryFactory = ([
     if (isSomeKey(keys))
       return [
         atom(["" + keys, [keys] as SomeKey[]] as const),
-        () => {},
+        noop,
       ] as const;
 
     /*

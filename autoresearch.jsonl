@@ -35,3 +35,5 @@
 {"run":34,"commit":"474a08b","metric":1825,"metrics":{"raw_bytes":11286},"status":"keep","description":"Remove unnecessary async from fetcherStore.fetch — saves 1 byte","timestamp":1773919034069,"segment":0,"confidence":2.4776119402985075}
 {"run":35,"commit":"227a3ad","metric":1819,"metrics":{"raw_bytes":11207},"status":"keep","description":"Replace _revalidateOnInterval Map with local variable — saves 6 bytes","timestamp":1773919095063,"segment":0,"confidence":2.696969696969697}
 {"run":36,"commit":"4b898a4","metric":1811,"metrics":{"raw_bytes":11174},"status":"keep","description":"Inline safeKeySet in createMutatorStore — saves 8 bytes","timestamp":1773919210635,"segment":0,"confidence":3.129032258064516}
+{"run":37,"commit":"48b7a80","metric":1810,"metrics":{"raw_bytes":11156},"status":"keep","description":"Use .push.bind() for invalidate/revalidate callbacks in mutator — saves 1 byte","timestamp":1773919269322,"segment":0,"confidence":3.3793103448275863}
+{"run":38,"commit":"48b7a80","metric":1810,"metrics":{"raw_bytes":11148},"status":"discard","description":"Shorten error message further — same brotli","timestamp":1773919301335,"segment":0,"confidence":4}
