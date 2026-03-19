@@ -163,13 +163,11 @@ export const nanoqueryFactory = ([
 
       const set = (v: FetcherValue) => {
         if (store.key === key) {
-          console.log(`[${key}] setting to ${v}`);
           store.set(v);
           events.emit(SET_CACHE, key, v, true);
         }
       };
       const setAsLoading = (prev?: any) => {
-        console.log(`[${key}] marking as loading; prev value:`, prev);
         const toSet = prev === undefined ? {} : { data: prev };
         set({
           ...toSet,
@@ -194,24 +192,18 @@ export const nanoqueryFactory = ([
       if (_runningFetches.has(key)) {
         // Do not run fetcher for the same key if previous one hasn't finished yet
         // Remember: we can have many fetcher stores pointing to the same key
-        console.log(`[${key}] already runs, breaking`);
         if (!store.value.loading) setAsLoading(getCachedValueByKey(key)[0]);
         return;
       }
 
       let cachedValue: any | void, cachedError: any | void;
       const fromCache = cache.get(key);
-      console.log(`[${key}] from cache:`, fromCache);
 
       if (fromCache?.data !== void 0 || fromCache?.error) {
         [cachedValue, cachedError] = getCachedValueByKey(key);
 
-        console.log(`[${key}] cached value:`, cachedValue);
-        console.log(`[${key}] cached error:`, cachedError);
-
         // Handling request deduplication
         if ((fromCache.created || 0) + dedupeTime > now) {
-          console.log(`[${key}]: deduped`);
           // Preventing excessive store updates
           if (
             store.value.data != cachedValue ||
@@ -229,7 +221,6 @@ export const nanoqueryFactory = ([
         // if you have `revalidateOnInterval` below error retry timeout.
         clearTimeout(_errorInvalidateTimeouts.get(key));
 
-        console.log(`[${key}] running fetcher`);
         const promise = fetcher!(...keyParts);
         _runningFetches.set(key, promise);
         setAsLoading(cachedValue);
@@ -356,7 +347,6 @@ export const nanoqueryFactory = ([
           revalidateOnReconnect,
         } = settings;
         const runRefetcher = () => {
-          console.log(`[${prevKey}] running refetcher`);
           if (prevKey)
             runFetcher([prevKey, prevKeyParts!], fetcherStore, settings);
         };
@@ -381,7 +371,6 @@ export const nanoqueryFactory = ([
           events.on(INVALIDATE_KEYS, cacheKeyChangeHandler),
           events.on(REVALIDATE_KEYS, cacheKeyChangeHandler),
           events.on(SET_CACHE, (keySelector, data, full) => {
-            console.log(`[${keySelector}] setting cache: `, data);
             if (
               prevKey &&
               testKeyAgainstSelector(prevKey, keySelector) &&
@@ -433,17 +422,14 @@ export const nanoqueryFactory = ([
     const invalidateKeys = (keySelector: KeySelector) => {
       iterOverCache(keySelector, (key) => {
         cache.delete(key);
-        console.log(`[${key}] nuking key`);
       });
       events.emit(INVALIDATE_KEYS, keySelector);
     };
     const revalidateKeys = (keySelector: KeySelector) => {
-      console.log(`[${keySelector}] revalidating`);
       iterOverCache(keySelector, (key) => {
         const cached = cache.get(key);
         if (cached) {
           cache.set(key, { ...cached, created: -Infinity });
-          console.log(`[${key}] setting key to revalidate`);
         }
       });
       events.emit(REVALIDATE_KEYS, keySelector);
@@ -529,7 +515,6 @@ export const nanoqueryFactory = ([
         } catch (error) {
           onError?.(error);
           safeKeySet("error", error as E);
-          store.setKey("error", error as E);
         } finally {
           safeKeySet("loading", false);
           // We do not catch it because it's caught in `wrapMutator`.

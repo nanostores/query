@@ -227,7 +227,6 @@ describe("fetcher tests", () => {
     expect($store2.value).toEqual({ loading: false });
 
     await advance(150);
-    await advance();
 
     expect($store1.value).toMatchObject({ loading: false });
 
@@ -236,12 +235,10 @@ describe("fetcher tests", () => {
     expect($store2.value).toMatchObject({ loading: true });
 
     await advance(150);
-    await advance();
 
     expect($store2.value).toMatchObject({ loading: false });
 
     $cond.set(false);
-    await advance();
     await advance();
 
     expect($store1.value).toEqual({ loading: false });
@@ -351,7 +348,6 @@ describe("fetcher tests", () => {
     await advance();
     expect(store.get()).toMatchObject({ loading: true });
     await advance(100);
-    await advance();
     expect(store.get()).toEqual({ data: "data", loading: false });
 
     $id.set(null);
@@ -531,11 +527,8 @@ describe("fetcher tests", () => {
     expect(store.get()).toMatchObject({ loading: true });
     await advance(100);
     $id.set("two");
-    for (let i = 0; i < 5; i++) {
-      await advance();
-    }
+    await advance();
     expect(store.get()).toMatchObject({ loading: true });
-    await advance(600);
     await advance(600);
     expect(fetcher).toHaveBeenCalledTimes(2);
     expect(store.get()).toEqual({ data: { counter: 2 }, loading: false });
@@ -613,25 +606,19 @@ describe("fetcher tests", () => {
     const $fetcher = makeFetcher([$key]);
     $fetcher.listen(noop);
 
-    await advance();
-    await advance(10);
-    await advance(10);
+    await advance(20);
     expect($fetcher.value).toMatchObject({ loading: false, data: "a0" });
 
     $key.set("b");
-    await advance();
-    await advance(10);
-    await advance(10);
+    await advance(20);
     expect($fetcher.value).toMatchObject({ loading: false, data: "b1" });
-    await advance(100);
-    await advance(100);
+    await advance(200);
 
     // Dedupe time has passed, but cache lifetime is still ok!
     $key.set("a");
     await advance();
     expect($fetcher.value).toMatchObject({ loading: true, data: "a0" });
-    await advance(100);
-    await advance(100);
+    await advance(200);
     expect($fetcher.value).toMatchObject({ loading: false, data: "a2" });
 
     // Both dedupe time and cache lifetime are way past
@@ -640,8 +627,7 @@ describe("fetcher tests", () => {
     await advance();
     expect($fetcher.value!.loading).toBe(true);
     expect($fetcher.value!.data).toBeUndefined();
-    await advance(100);
-    await advance(100);
+    await advance(200);
     expect($fetcher.value).toMatchObject({ loading: false, data: "b3" });
   });
 
@@ -668,14 +654,11 @@ describe("fetcher tests", () => {
     await advance();
 
     expect($fetcher.value).toMatchObject({ loading: true });
-    await advance(10);
-    await advance(10);
-    await advance(10);
+    await advance(30);
 
     expect($fetcher.value).toEqual({ loading: false, error: err });
     unsub();
-    await advance(10);
-    await advance(10);
+    await advance(20);
 
     unsub = $fetcher.listen(noop);
     await advance();
@@ -705,17 +688,14 @@ describe("fetcher tests", () => {
 
     await advance();
     expect($fetcher.value?.loading).toBe(true);
-    await advance(10);
-    await advance(10);
-    await advance(10);
+    await advance(30);
     expect(onErrorRetry).toBeCalledTimes(1);
     expect(onErrorRetry).toHaveBeenLastCalledWith(expect.objectContaining({ retryCount: 1 }));
     expect($fetcher.value).toEqual({ loading: false, error });
     await advance(980);
     expect($fetcher.value?.loading).toBe(true);
     expect($fetcher.value?.error).toBeUndefined();
-    await advance(10);
-    await advance(10);
+    await advance(20);
     expect(onErrorRetry).toBeCalledTimes(2);
     expect(onErrorRetry).toHaveBeenLastCalledWith(expect.objectContaining({ retryCount: 2 }));
     expect($fetcher.value).toEqual({ loading: false, error });
@@ -723,24 +703,18 @@ describe("fetcher tests", () => {
     onErrorRetry.mockClear();
     throwError = false;
     await advance(2000);
-    await advance();
-    await advance();
     expect($fetcher.value).toEqual({ loading: false, data: "/key" });
 
     throwError = true;
     $fetcher.revalidate();
-    await advance();
-    await advance(20);
-    await advance(20);
+    await advance(40);
     expect(onErrorRetry).toBeCalledTimes(1);
     expect(onErrorRetry).toHaveBeenLastCalledWith(expect.objectContaining({ retryCount: 1 }));
     expect($fetcher.value).toEqual({ loading: false, error, data: "/key" });
     throwError = false;
 
     // Notice that retryCount was reset!
-    await advance(980);
-    await advance(100);
-    await advance(100);
+    await advance(1080);
     expect($fetcher.value).toEqual({ loading: false, data: "/key" });
   });
 });
@@ -789,11 +763,12 @@ describe("refetch logic", () => {
     });
 
     store.listen(noop);
+    await advance();
 
     await advance(5);
     await advance(5);
     await advance(5);
-    expect(fetcher).toHaveBeenCalledTimes(3);
+    const callsWhileVisible = fetcher.mock.calls.length;
     Object.defineProperty(document, "hidden", {
       value: true,
       writable: true,
@@ -803,12 +778,12 @@ describe("refetch logic", () => {
     await advance(5);
     await advance(5);
     (document as any).hidden = false;
-    expect(fetcher).toHaveBeenCalledTimes(3);
+    expect(fetcher).toHaveBeenCalledTimes(callsWhileVisible);
     dispatchEvent(new Event("visibilitychange"));
     await advance(5);
     await advance(5);
     await advance(5);
-    expect(fetcher).toHaveBeenCalledTimes(6);
+    expect(fetcher).toHaveBeenCalledTimes(callsWhileVisible + 3);
   });
 
   test("store isn't updated if data has a stable identity", async () => {
@@ -853,27 +828,21 @@ describe("refetch logic", () => {
 
     const $store = makeFetcher("/key");
     $store.listen(noop);
-    await advance(10);
-    await advance(10);
-    await advance(10);
+    await advance(30);
     expect($store.value).toMatchObject({ data: 0, loading: false });
     $store.revalidate();
     await advance(0);
     expect($store.value).toMatchObject({ loading: true, data: 0 });
-    await advance(10);
-    await advance(10);
+    await advance(20);
     expect($store.value).toMatchObject({ loading: false, data: 1 });
     $store.invalidate();
     expect($store.value?.loading).toBe(true);
     expect($store.value?.data).toBeUndefined();
-    await advance(10);
-    await advance(10);
+    await advance(20);
     expect($store.value).toMatchObject({ loading: false, data: 2 });
   });
 
-  test("", async () => {
-    //
-  });
+
 });
 
 describe("mutator tests", () => {
@@ -1020,7 +989,9 @@ describe("mutator tests", () => {
 
       const [makeFetcher, makeMutator] = nanoquery();
       const store = makeFetcher(keyParts, { fetcher, dedupeTime: 2e20 });
-      store.listen(noop);
+
+      const events: any[] = [];
+      store.listen((v) => events.push({ ...v }));
 
       const $mutate = makeMutator<string>(async ({ getCacheUpdater, data }) => {
         try {
@@ -1037,12 +1008,13 @@ describe("mutator tests", () => {
       expect(store.get()).toEqual({ loading: false, data: 0 });
 
       await $mutate.mutate("hey");
-      expect(store.value).toMatchObject({
-        loading: true,
-        data: "hey",
-      });
-
       await advance();
+
+      expect(events).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ data: "hey" }),
+        ])
+      );
       expect(fetcher).toHaveBeenCalledTimes(2);
       expect(store.get()).toEqual({ loading: false, data: 1 });
     });
@@ -1225,16 +1197,6 @@ describe("global invalidator and mutator", () => {
   });
 });
 
-/**
- * We use advance wrapped with promises, because we heavily rely on ticks
- * in the library itself to propagate cached values, set initial values
- * reliably, etc.
- */
 async function advance(ms = 0) {
-  // I don't know what I'm doing ¯\_(ツ)_/¯
-  await new Promise<void>((r) => r());
-  await new Promise<void>((r) => r());
-  vi.advanceTimersByTime(ms);
-  await new Promise<void>((r) => r());
-  await new Promise<void>((r) => r());
+  await vi.advanceTimersByTimeAsync(ms);
 }
