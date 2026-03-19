@@ -553,11 +553,8 @@ export const nanoqueryFactory = ([
     */
     const keyParts: (SomeKey | NoKey)[] = [];
     const $key = atom<[Key, KeyParts] | null>(null);
-
-    const keysAsStoresToIndexes = new Map<
-      ReadableAtom<SomeKey | NoKey> | FetcherStore,
-      number
-    >();
+    const storeList: (ReadableAtom<SomeKey | NoKey> | FetcherStore)[] = [];
+    const storeIndexes: number[] = [];
 
     const setKeyStoreValue = () =>
       $key.set(
@@ -572,17 +569,16 @@ export const nanoqueryFactory = ([
         keyParts.push(keyOrStore);
       } else {
         keyParts.push(null);
-        keysAsStoresToIndexes.set(keyOrStore, i);
+        storeList.push(keyOrStore);
+        storeIndexes.push(i);
       }
     }
 
-    const storesAsArray = [...keysAsStoresToIndexes.keys()];
-    const $storeKeys = batched(storesAsArray, (...storeValues) => {
+    const $storeKeys = batched(storeList, (...storeValues) => {
       for (let i = 0; i < storeValues.length; i++) {
-        const store = storesAsArray[i],
-          partIndex = keysAsStoresToIndexes.get(store) as number;
+        const store = storeList[i];
 
-        keyParts[partIndex] =
+        keyParts[storeIndexes[i]] =
           (store as any)._ === fetcherSymbol
             ? store.value && "data" in (store as FetcherStore).value!
               ? (store as FetcherStore).key
