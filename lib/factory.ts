@@ -70,7 +70,7 @@ export type FetcherValue<T = any, E = Error> = {
 type LazyFetchValue<T = any, E = any> = { data: T } | { error: E };
 
 export type FetcherStore<T = any, E = any> = MapStore<FetcherValue<T, E>> & {
-  _: Symbol;
+  _: object;
   key?: Key;
   // Signature accepts anything, but doesn't use it. It's a simplification for
   // cases where you pass this function directly to promise resolvers, event handlers, etc.
@@ -137,22 +137,11 @@ export const nanoqueryFactory = ([
 
     // Leaving separate entities for these.
     // Intervals are useless for serializing, promises are not serializable at all
-    const _revalidateOnInterval = new Map<KeyInput, number>(),
-      _errorInvalidateTimeouts = new Map<Key, number>(),
+    const _errorInvalidateTimeouts = new Map<Key, number>(),
       _runningFetches = new Map<Key, Promise<any>>();
 
     // Used for testing to have the highest say in settings hierarchy
     let rewrittenSettings: CommonSettings = {};
-
-    const getCachedValueByKey = (key: Key) => {
-      const fromCache = cache.get(key);
-      if (!fromCache) return [];
-
-      // Handling cache lifetime
-      // Unsetting stale cache or setting fresh cache
-      const cacheHit = (fromCache.expires || 0) > getNow();
-      return cacheHit ? [fromCache.data, fromCache.error] : [];
-    };
 
     const runFetcher = async (
       [key, keyParts]: [Key, KeyParts],
@@ -190,9 +179,10 @@ export const nanoqueryFactory = ([
       const now = getNow();
 
       if (_runningFetches.has(key)) {
-        // Do not run fetcher for the same key if previous one hasn't finished yet
-        // Remember: we can have many fetcher stores pointing to the same key
-        if (!store.value.loading) setAsLoading(getCachedValueByKey(key)[0]);
+        if (!store.value.loading) {
+          const c = cache.get(key);
+          setAsLoading(c && (c.expires || 0) > getNow() ? c.data : undefined);
+        }
         return;
       }
 
@@ -200,7 +190,10 @@ export const nanoqueryFactory = ([
       const fromCache = cache.get(key);
 
       if (fromCache?.data !== void 0 || fromCache?.error) {
-        [cachedValue, cachedError] = getCachedValueByKey(key);
+        if ((fromCache.expires || 0) > getNow()) {
+          cachedValue = fromCache.data;
+          cachedError = fromCache.error;
+        }
 
         // Handling request deduplication
         if ((fromCache.created || 0) + dedupeTime > now) {
@@ -272,9 +265,7 @@ export const nanoqueryFactory = ([
       }: CommonSettings<T> = {}
     ): FetcherStore<T, E> => {
       if (process.env.NODE_ENV !== "production" && !fetcher) {
-        throw new Error(
-          "You need to set up either global fetcher of fetcher in createFetcherStore"
-        );
+        throw Error("No fetcher defined");
       }
 
       const fetcherStore: PrivateFetcherStore<T> = map({
@@ -301,7 +292,7 @@ export const nanoqueryFactory = ([
           mutateCache(key, data);
         }
       };
-      fetcherStore.fetch = async () => {
+      fetcherStore.fetch = () => {
         let resolve: (value: LazyFetchValue) => void;
         const promise = new Promise<LazyFetchValue>((r) => (resolve = r));
         const unsub = fetcherStore.listen(({ error, data }) => {
@@ -317,49 +308,39 @@ export const nanoqueryFactory = ([
         keyUnsub: Fn,
         keyStore: ReturnType<typeof getKeyStore>[0];
 
-      let evtUnsubs: Fn[] = [];
+      let evtUnsubs: Fn[] = [],
+        revalInterval: number;
+
+      const handleNewListener = () => {
+        if (prevKey)
+          runFetcher([prevKey, prevKeyParts!], fetcherStore, settings);
+      };
 
       onStart(fetcherStore, () => {
-        const firstRun = !keysInternalUnsub;
         [keyStore, keysInternalUnsub] = getKeyStore(keyInput);
         keyUnsub = keyStore.subscribe((currentKeys) => {
           if (currentKeys) {
             const [newKey, keyParts] = currentKeys;
-            fetcherStore.key = newKey;
-            runFetcher([newKey, keyParts], fetcherStore, settings);
-            prevKey = newKey;
+            prevKey = fetcherStore.key = newKey;
             prevKeyParts = keyParts;
+            runFetcher([newKey, keyParts], fetcherStore, settings);
           } else {
             fetcherStore.key = prevKey = prevKeyParts = void 0;
             fetcherStore.set({ ...notLoading });
           }
         });
 
-        const currentKeyValue = keyStore.get();
-        if (currentKeyValue) {
-          [prevKey, prevKeyParts] = currentKeyValue;
-          if (firstRun) handleNewListener();
-        }
-
         const {
           revalidateInterval = 0,
           revalidateOnFocus,
           revalidateOnReconnect,
         } = settings;
-        const runRefetcher = () => {
-          if (prevKey)
-            runFetcher([prevKey, prevKeyParts!], fetcherStore, settings);
-        };
 
-        if (revalidateInterval > 0) {
-          _revalidateOnInterval.set(
-            keyInput,
-            setInterval(runRefetcher, revalidateInterval) as unknown as number
-          );
-        }
-        if (revalidateOnFocus) evtUnsubs.push(events.on(FOCUS, runRefetcher));
+        if (revalidateInterval > 0)
+          revalInterval = setInterval(handleNewListener, revalidateInterval) as unknown as number;
+        if (revalidateOnFocus) evtUnsubs.push(events.on(FOCUS, handleNewListener));
         if (revalidateOnReconnect)
-          evtUnsubs.push(events.on(RECONNECT, runRefetcher));
+          evtUnsubs.push(events.on(RECONNECT, handleNewListener));
 
         const cacheKeyChangeHandler = (keySelector: KeySelector) => {
           if (prevKey && testKeyAgainstSelector(prevKey, keySelector)) {
@@ -385,11 +366,6 @@ export const nanoqueryFactory = ([
         );
       });
 
-      const handleNewListener = () => {
-        if (prevKey && prevKeyParts)
-          runFetcher([prevKey, prevKeyParts], fetcherStore, settings);
-      };
-
       // Replicating the behavior of .subscribe
       const originListen = fetcherStore.listen;
       fetcherStore.listen = (listener: any) => {
@@ -405,7 +381,7 @@ export const nanoqueryFactory = ([
         evtUnsubs.forEach((fn) => fn());
         evtUnsubs = [];
         keyUnsub?.();
-        clearInterval(_revalidateOnInterval.get(keyInput));
+        clearInterval(revalInterval);
       });
 
       return fetcherStore as FetcherStore<T, E>;
@@ -414,11 +390,10 @@ export const nanoqueryFactory = ([
     const iterOverCache = (
       keySelector: KeySelector,
       cb: (key: string) => void
-    ) => {
-      for (const key of cache.keys()) {
+    ) =>
+      cache.forEach((_, key) => {
         if (testKeyAgainstSelector(key, keySelector)) cb(key);
-      }
-    };
+      });
     const invalidateKeys = (keySelector: KeySelector) => {
       iterOverCache(keySelector, (key) => {
         cache.delete(key);
@@ -449,14 +424,12 @@ export const nanoqueryFactory = ([
       events.emit(SET_CACHE, keySelector, data);
     };
 
-    function createMutatorStore<Data = void, Result = unknown, E = any>(
+    const createMutatorStore = <Data = void, Result = unknown, E = any>(
       mutator: ManualMutator<Data, Result>,
       opts?: { throttleCalls?: boolean; onError?: EventTypes["onError"] }
-    ): MutatorStore<Data, Result, E> {
-      const { throttleCalls, onError } = opts ?? {
-        throttleCalls: true,
-        onError: globalSettings?.onError,
-      };
+    ): MutatorStore<Data, Result, E> => {
+      const throttleCalls = opts?.throttleCalls ?? true;
+      const onError = opts?.onError ?? globalSettings?.onError;
 
       const mutate = async (data: Data) => {
         // Adding extremely basic client-side throttling
@@ -464,39 +437,19 @@ export const nanoqueryFactory = ([
         // in void return.
         if (throttleCalls && store.value?.loading) return;
 
-        const newMutator = (rewrittenSettings.fetcher ??
-          mutator) as ManualMutator<Data, Result>;
         const keysToInvalidate: KeySelector[] = [],
           keysToRevalidate: KeySelector[] = [];
 
-        const safeKeySet = <K extends keyof StoreValue<typeof store>>(
-          k: K,
-          v: StoreValue<typeof store>[K]
-        ) => {
-          // If you already have unsubscribed from this mutation store, we do not
-          // want to overwrite the default unset value. We just let the set values to
-          // be forgotten forever.
-          if (store.lc) {
-            store.setKey(k, v);
-          }
-        };
         try {
           store.set({
-            error: void 0,
-            data: void 0,
             mutate: mutate as MutateCb<Data, Result>,
             ...loading,
           });
-          const result = await newMutator({
+          const result = await ((rewrittenSettings.fetcher ??
+            mutator) as ManualMutator<Data, Result>)({
             data,
-            invalidate: (key: KeySelector) => {
-              // We automatically postpone key invalidation up until mutator is run
-              keysToInvalidate.push(key);
-            },
-            revalidate: (key: KeySelector) => {
-              // We automatically postpone key invalidation up until mutator is run
-              keysToRevalidate.push(key);
-            },
+            invalidate: keysToInvalidate.push.bind(keysToInvalidate),
+            revalidate: keysToRevalidate.push.bind(keysToRevalidate),
             getCacheUpdater: <T = unknown>(
               key: Key,
               shouldRevalidate = true
@@ -510,13 +463,13 @@ export const nanoqueryFactory = ([
               cache.get(key)?.data as T | undefined,
             ],
           });
-          safeKeySet("data", result as Result);
+          if (store.lc) store.setKey("data", result as Result);
           return result;
         } catch (error) {
           onError?.(error);
-          safeKeySet("error", error as E);
+          if (store.lc) store.setKey("error", error as E);
         } finally {
-          safeKeySet("loading", false);
+          if (store.lc) store.setKey("loading", false);
           // We do not catch it because it's caught in `wrapMutator`.
           // But we still invalidate all keys that were invalidated during running manual
           // mutator.
@@ -533,14 +486,9 @@ export const nanoqueryFactory = ([
       );
       store.mutate = mutate as MutateCb<Data, Result>;
       return store;
-    }
+    };
 
     const __unsafeOverruleSettings = (data: CommonSettings) => {
-      if (process.env.NODE_ENV !== "test") {
-        console.warn(
-          `You should only use __unsafeOverruleSettings in test environment`
-        );
-      }
       rewrittenSettings = data;
     };
 
@@ -551,9 +499,8 @@ export const nanoqueryFactory = ([
     ] as const;
   };
 
-  function isSomeKey(key: unknown): key is SomeKey {
-    return typeof key === "string" || typeof key === "number" || key === true;
-  }
+  const isSomeKey = (key: unknown): key is SomeKey =>
+    typeof key === "string" || typeof key === "number" || key === true;
 
   /**
    * Transforming the input keys into a reactive store.
@@ -563,7 +510,7 @@ export const nanoqueryFactory = ([
     if (isSomeKey(keys))
       return [
         atom(["" + keys, [keys] as SomeKey[]] as const),
-        () => {},
+        noop,
       ] as const;
 
     /*
@@ -575,44 +522,36 @@ export const nanoqueryFactory = ([
     */
     const keyParts: (SomeKey | NoKey)[] = [];
     const $key = atom<[Key, KeyParts] | null>(null);
+    const storeList: (ReadableAtom<SomeKey | NoKey> | FetcherStore)[] = [];
+    const storeIndexes: number[] = [];
 
-    const keysAsStoresToIndexes = new Map<
-      ReadableAtom<SomeKey | NoKey> | FetcherStore,
-      number
-    >();
+    const setKeyStoreValue = () =>
+      $key.set(
+        keyParts.some((v) => v === null || v === void 0 || v === false)
+          ? null
+          : [keyParts.join(""), keyParts as KeyParts]
+      );
 
-    const setKeyStoreValue = () => {
-      if (keyParts.some((v) => v === null || v === void 0 || v === false)) {
-        $key.set(null);
-      } else {
-        $key.set([keyParts.join(""), keyParts as KeyParts]);
-      }
-    };
-
-    for (let i = 0; i < keys.length; i++) {
-      const keyOrStore = keys[i];
+    (keys as any[]).forEach((keyOrStore, i) => {
       if (isSomeKey(keyOrStore)) {
         keyParts.push(keyOrStore);
       } else {
         keyParts.push(null);
-        keysAsStoresToIndexes.set(keyOrStore, i);
+        storeList.push(keyOrStore);
+        storeIndexes.push(i);
       }
-    }
+    });
 
-    const storesAsArray = [...keysAsStoresToIndexes.keys()];
-    const $storeKeys = batched(storesAsArray, (...storeValues) => {
-      for (let i = 0; i < storeValues.length; i++) {
-        const store = storesAsArray[i],
-          partIndex = keysAsStoresToIndexes.get(store) as number;
-
-        keyParts[partIndex] =
+    const $storeKeys = batched(storeList, (...storeValues) => {
+      storeValues.forEach((sv, i) => {
+        const store = storeList[i];
+        keyParts[storeIndexes[i]] =
           (store as any)._ === fetcherSymbol
             ? store.value && "data" in (store as FetcherStore).value!
               ? (store as FetcherStore).key
               : null
-            : (storeValues[i] as SomeKey | NoKey);
-      }
-
+            : (sv as SomeKey | NoKey);
+      });
       setKeyStoreValue();
     });
 
@@ -621,7 +560,7 @@ export const nanoqueryFactory = ([
     return [$key, $storeKeys.subscribe(noop)] as const;
   };
 
-  function noop() {}
+  const noop = () => {};
 
   const FOCUS = 1,
     RECONNECT = 2,
@@ -646,15 +585,14 @@ export const nanoqueryFactory = ([
     ) => void;
   };
 
-  const testKeyAgainstSelector = (key: Key, selector: KeySelector): boolean => {
-    if (Array.isArray(selector)) return selector.includes(key);
-    else if (typeof selector === "function") return selector(key);
-    else return key === selector;
-  };
+  const testKeyAgainstSelector = (key: Key, selector: KeySelector): boolean =>
+    (selector as Function).call
+      ? (selector as Function)(key)
+      : ([] as any[]).concat(selector).includes(key);
 
-  const getNow = () => new Date().getTime();
+  const getNow = () => +new Date();
 
-  const fetcherSymbol = Symbol();
+  const fetcherSymbol = {};
 
   const loading = { loading: true },
     notLoading = { loading: false };

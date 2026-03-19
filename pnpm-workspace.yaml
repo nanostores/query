@@ -1,0 +1,3 @@
+allowBuilds:
+  '@evilmartians/lefthook': true
+  esbuild: true
