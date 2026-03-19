@@ -144,16 +144,6 @@ export const nanoqueryFactory = ([
     // Used for testing to have the highest say in settings hierarchy
     let rewrittenSettings: CommonSettings = {};
 
-    const getCachedValueByKey = (key: Key) => {
-      const fromCache = cache.get(key);
-      if (!fromCache) return [];
-
-      // Handling cache lifetime
-      // Unsetting stale cache or setting fresh cache
-      const cacheHit = (fromCache.expires || 0) > getNow();
-      return cacheHit ? [fromCache.data, fromCache.error] : [];
-    };
-
     const runFetcher = async (
       [key, keyParts]: [Key, KeyParts],
       store: PrivateFetcherStore,
@@ -190,9 +180,10 @@ export const nanoqueryFactory = ([
       const now = getNow();
 
       if (_runningFetches.has(key)) {
-        // Do not run fetcher for the same key if previous one hasn't finished yet
-        // Remember: we can have many fetcher stores pointing to the same key
-        if (!store.value.loading) setAsLoading(getCachedValueByKey(key)[0]);
+        if (!store.value.loading) {
+          const c = cache.get(key);
+          setAsLoading(c && (c.expires || 0) > getNow() ? c.data : undefined);
+        }
         return;
       }
 
@@ -200,7 +191,10 @@ export const nanoqueryFactory = ([
       const fromCache = cache.get(key);
 
       if (fromCache?.data !== void 0 || fromCache?.error) {
-        [cachedValue, cachedError] = getCachedValueByKey(key);
+        if ((fromCache.expires || 0) > getNow()) {
+          cachedValue = fromCache.data;
+          cachedError = fromCache.error;
+        }
 
         // Handling request deduplication
         if ((fromCache.created || 0) + dedupeTime > now) {
