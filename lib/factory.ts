@@ -450,17 +450,6 @@ export const nanoqueryFactory = ([
         const keysToInvalidate: KeySelector[] = [],
           keysToRevalidate: KeySelector[] = [];
 
-        const safeKeySet = <K extends keyof StoreValue<typeof store>>(
-          k: K,
-          v: StoreValue<typeof store>[K]
-        ) => {
-          // If you already have unsubscribed from this mutation store, we do not
-          // want to overwrite the default unset value. We just let the set values to
-          // be forgotten forever.
-          if (store.lc) {
-            store.setKey(k, v);
-          }
-        };
         try {
           store.set({
             mutate: mutate as MutateCb<Data, Result>,
@@ -469,11 +458,9 @@ export const nanoqueryFactory = ([
           const result = await newMutator({
             data,
             invalidate: (key: KeySelector) => {
-              // We automatically postpone key invalidation up until mutator is run
               keysToInvalidate.push(key);
             },
             revalidate: (key: KeySelector) => {
-              // We automatically postpone key invalidation up until mutator is run
               keysToRevalidate.push(key);
             },
             getCacheUpdater: <T = unknown>(
@@ -489,13 +476,13 @@ export const nanoqueryFactory = ([
               cache.get(key)?.data as T | undefined,
             ],
           });
-          safeKeySet("data", result as Result);
+          if (store.lc) store.setKey("data", result as Result);
           return result;
         } catch (error) {
           onError?.(error);
-          safeKeySet("error", error as E);
+          if (store.lc) store.setKey("error", error as E);
         } finally {
-          safeKeySet("loading", false);
+          if (store.lc) store.setKey("loading", false);
           // We do not catch it because it's caught in `wrapMutator`.
           // But we still invalidate all keys that were invalidated during running manual
           // mutator.
