@@ -35,37 +35,40 @@
   "exports": {
     ".": {
       "types": "./dist/main.d.ts",
-      "import": "./dist/nanoquery.js",
       "react-native": "./dist/nanoquery.native.cjs",
-      "require": "./dist/nanoquery.umd.cjs"
+      "import": "./dist/nanoquery.js",
+      "require": "./dist/nanoquery.umd.cjs",
+      "default": "./dist/nanoquery.js"
     },
     "./react-native": {
       "types": "./dist/main.d.ts",
-      "require": "./dist/nanoquery.native.cjs"
+      "import": "./dist/nanoquery.native.cjs",
+      "require": "./dist/nanoquery.native.cjs",
+      "default": "./dist/nanoquery.native.cjs"
     }
   },
   "dependencies": {
     "nanoevents": "^9.0.0"
   },
   "devDependencies": {
-    "@evilmartians/lefthook": "^1.6.9",
-    "@nanostores/react": "^0.7.2",
-    "@rollup/plugin-replace": "^5.0.5",
+    "@evilmartians/lefthook": "^2.1.4",
+    "@nanostores/react": "^1.1.0",
+    "@rollup/plugin-replace": "^6.0.3",
     "@rollup/plugin-strip": "^3.0.4",
-    "@size-limit/preset-small-lib": "^11.1.2",
-    "@testing-library/react": "^14.3.0",
-    "@types/node": "^20.12.6",
-    "@types/react": "^18.2.75",
-    "@types/react-dom": "^18.2.24",
-    "happy-dom": "^14.7.1",
-    "nanostores": "^0.10.3",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "size-limit": "^11.1.2",
-    "typescript": "^5.4.4",
-    "vite": "^5.2.8",
-    "vite-plugin-dts": "^3.8.1",
-    "vitest": "^1.4.0"
+    "@size-limit/preset-small-lib": "^12.0.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^25.5.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "happy-dom": "^20.8.4",
+    "nanostores": "^1.2.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "size-limit": "^12.0.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.1",
+    "vite-plugin-dts": "^4.5.4",
+    "vitest": "^4.1.0"
   },
   "peerDependencies": {
     "nanostores": ">=0.10"
@@ -75,7 +78,7 @@
     "@react-native-community/netinfo": ">=11"
   },
   "engines": {
-    "node": "^14.0.0 || ^16.0.0 || >=18.0.0"
+    "node": ">=20.0.0"
   },
   "directories": {
     "lib": "dist"

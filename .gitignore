@@ -119,3 +119,4 @@ build/
 
 .vscode/
 dist/
+tsconfig.vitest-temp.json
