@@ -441,10 +441,8 @@ export const nanoqueryFactory = ([
       mutator: ManualMutator<Data, Result>,
       opts?: { throttleCalls?: boolean; onError?: EventTypes["onError"] }
     ): MutatorStore<Data, Result, E> {
-      const { throttleCalls, onError } = opts ?? {
-        throttleCalls: true,
-        onError: globalSettings?.onError,
-      };
+      const throttleCalls = opts?.throttleCalls ?? true;
+      const onError = opts?.onError ?? globalSettings?.onError;
 
       const mutate = async (data: Data) => {
         // Adding extremely basic client-side throttling
