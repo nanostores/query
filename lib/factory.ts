@@ -385,7 +385,7 @@ export const nanoqueryFactory = ([
       onStop(fetcherStore, () => {
         fetcherStore.value = { ...notLoading };
         keysInternalUnsub?.();
-        for (const fn of evtUnsubs) fn();
+        evtUnsubs.forEach((fn) => fn());
         evtUnsubs = [];
         keyUnsub?.();
         clearInterval(revalInterval);
