@@ -322,10 +322,9 @@ export const nanoqueryFactory = ([
         keyUnsub = keyStore.subscribe((currentKeys) => {
           if (currentKeys) {
             const [newKey, keyParts] = currentKeys;
-            fetcherStore.key = newKey;
-            runFetcher([newKey, keyParts], fetcherStore, settings);
-            prevKey = newKey;
+            prevKey = fetcherStore.key = newKey;
             prevKeyParts = keyParts;
+            runFetcher([newKey, keyParts], fetcherStore, settings);
           } else {
             fetcherStore.key = prevKey = prevKeyParts = void 0;
             fetcherStore.set({ ...notLoading });

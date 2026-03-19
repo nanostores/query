@@ -25,3 +25,4 @@
 {"run":24,"commit":"df811f1","metric":1840,"metrics":{"raw_bytes":11456},"status":"keep","description":"Remove explicit void 0 properties in mutator store.set() — saves 5 bytes","timestamp":1773918468687,"segment":0,"confidence":2.4285714285714284}
 {"run":25,"commit":"63e1206","metric":1839,"metrics":{"raw_bytes":11450},"status":"keep","description":"Replace Symbol() with {} for fetcherSymbol — saves 1 byte brotli","timestamp":1773918524935,"segment":0,"confidence":2.3}
 {"run":26,"commit":"2afb5b4","metric":1834,"metrics":{"raw_bytes":11420},"status":"keep","description":"Convert setKeyStoreValue if/else to ternary expression — saves 5 bytes","timestamp":1773918565976,"segment":0,"confidence":2.4262295081967213}
+{"run":27,"commit":"782dca2","metric":1831,"metrics":{"raw_bytes":11409},"status":"keep","description":"Replace new Date().getTime() with +new Date() — saves 3 bytes","timestamp":1773918607601,"segment":0,"confidence":2.40625}
