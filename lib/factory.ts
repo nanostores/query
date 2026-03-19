@@ -70,7 +70,7 @@ export type FetcherValue<T = any, E = Error> = {
 type LazyFetchValue<T = any, E = any> = { data: T } | { error: E };
 
 export type FetcherStore<T = any, E = any> = MapStore<FetcherValue<T, E>> & {
-  _: Symbol;
+  _: object;
   key?: Key;
   // Signature accepts anything, but doesn't use it. It's a simplification for
   // cases where you pass this function directly to promise resolvers, event handlers, etc.
@@ -632,7 +632,7 @@ export const nanoqueryFactory = ([
 
   const getNow = () => new Date().getTime();
 
-  const fetcherSymbol = Symbol();
+  const fetcherSymbol = {};
 
   const loading = { loading: true },
     notLoading = { loading: false };
