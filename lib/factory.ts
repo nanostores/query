@@ -431,10 +431,10 @@ export const nanoqueryFactory = ([
       events.emit(SET_CACHE, keySelector, data);
     };
 
-    function createMutatorStore<Data = void, Result = unknown, E = any>(
+    const createMutatorStore = <Data = void, Result = unknown, E = any>(
       mutator: ManualMutator<Data, Result>,
       opts?: { throttleCalls?: boolean; onError?: EventTypes["onError"] }
-    ): MutatorStore<Data, Result, E> {
+    ): MutatorStore<Data, Result, E> => {
       const throttleCalls = opts?.throttleCalls ?? true;
       const onError = opts?.onError ?? globalSettings?.onError;
 
@@ -494,7 +494,7 @@ export const nanoqueryFactory = ([
       );
       store.mutate = mutate as MutateCb<Data, Result>;
       return store;
-    }
+    };
 
     const __unsafeOverruleSettings = (data: CommonSettings) => {
       rewrittenSettings = data;
