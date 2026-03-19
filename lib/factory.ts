@@ -553,17 +553,15 @@ export const nanoqueryFactory = ([
     });
 
     const $storeKeys = batched(storeList, (...storeValues) => {
-      for (let i = 0; i < storeValues.length; i++) {
+      storeValues.forEach((sv, i) => {
         const store = storeList[i];
-
         keyParts[storeIndexes[i]] =
           (store as any)._ === fetcherSymbol
             ? store.value && "data" in (store as FetcherStore).value!
               ? (store as FetcherStore).key
               : null
-            : (storeValues[i] as SomeKey | NoKey);
-      }
-
+            : (sv as SomeKey | NoKey);
+      });
       setKeyStoreValue();
     });
 
