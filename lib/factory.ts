@@ -437,8 +437,6 @@ export const nanoqueryFactory = ([
         // in void return.
         if (throttleCalls && store.value?.loading) return;
 
-        const newMutator = (rewrittenSettings.fetcher ??
-          mutator) as ManualMutator<Data, Result>;
         const keysToInvalidate: KeySelector[] = [],
           keysToRevalidate: KeySelector[] = [];
 
@@ -447,7 +445,8 @@ export const nanoqueryFactory = ([
             mutate: mutate as MutateCb<Data, Result>,
             ...loading,
           });
-          const result = await newMutator({
+          const result = await ((rewrittenSettings.fetcher ??
+            mutator) as ManualMutator<Data, Result>)({
             data,
             invalidate: keysToInvalidate.push.bind(keysToInvalidate),
             revalidate: keysToRevalidate.push.bind(keysToRevalidate),
