@@ -507,9 +507,8 @@ export const nanoqueryFactory = ([
     ] as const;
   };
 
-  function isSomeKey(key: unknown): key is SomeKey {
-    return typeof key === "string" || typeof key === "number" || key === true;
-  }
+  const isSomeKey = (key: unknown): key is SomeKey =>
+    typeof key === "string" || typeof key === "number" || key === true;
 
   /**
    * Transforming the input keys into a reactive store.
@@ -569,7 +568,7 @@ export const nanoqueryFactory = ([
     return [$key, $storeKeys.subscribe(noop)] as const;
   };
 
-  function noop() {}
+  const noop = () => {};
 
   const FOCUS = 1,
     RECONNECT = 2,
