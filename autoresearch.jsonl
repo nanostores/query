@@ -9,3 +9,4 @@
 {"run":8,"commit":"f3e8510","metric":1908,"metrics":{"raw_bytes":11960},"status":"discard","description":"Remove async from fetcherStore.fetch — same size, no improvement","timestamp":1773917679015,"segment":0,"confidence":null}
 {"run":9,"commit":"db91032","metric":1906,"metrics":{"raw_bytes":11891},"status":"keep","description":"Simplify testKeyAgainstSelector using .call duck-typing + [].concat — saves 2 bytes","timestamp":1773917754440,"segment":0,"confidence":1}
 {"run":10,"commit":"db91032","metric":1906,"metrics":{"raw_bytes":11874},"status":"discard","description":"Simplify keyParts null check with == null — same brotli size","timestamp":1773917790942,"segment":0,"confidence":1}
+{"run":11,"commit":"f5df43e","metric":1893,"metrics":{"raw_bytes":11809},"status":"keep","description":"Shorten error message + console.warn string — saves 13 bytes total","timestamp":1773917839056,"segment":0,"confidence":7.5}

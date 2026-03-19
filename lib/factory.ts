@@ -272,7 +272,7 @@ export const nanoqueryFactory = ([
       }: CommonSettings<T> = {}
     ): FetcherStore<T, E> => {
       if (process.env.NODE_ENV !== "production" && !fetcher) {
-        throw new Error("No fetcher defined");
+        throw Error("No fetcher defined");
       }
 
       const fetcherStore: PrivateFetcherStore<T> = map({
@@ -534,9 +534,6 @@ export const nanoqueryFactory = ([
     }
 
     const __unsafeOverruleSettings = (data: CommonSettings) => {
-      if (process.env.NODE_ENV !== "test") {
-        console.warn("__unsafeOverruleSettings is test-only");
-      }
       rewrittenSettings = data;
     };
 
