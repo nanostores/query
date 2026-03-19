@@ -293,7 +293,7 @@ export const nanoqueryFactory = ([
           mutateCache(key, data);
         }
       };
-      fetcherStore.fetch = async () => {
+      fetcherStore.fetch = () => {
         let resolve: (value: LazyFetchValue) => void;
         const promise = new Promise<LazyFetchValue>((r) => (resolve = r));
         const unsub = fetcherStore.listen(({ error, data }) => {
