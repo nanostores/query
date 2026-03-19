@@ -542,8 +542,7 @@ export const nanoqueryFactory = ([
           : [keyParts.join(""), keyParts as KeyParts]
       );
 
-    for (let i = 0; i < keys.length; i++) {
-      const keyOrStore = keys[i];
+    (keys as any[]).forEach((keyOrStore, i) => {
       if (isSomeKey(keyOrStore)) {
         keyParts.push(keyOrStore);
       } else {
@@ -551,7 +550,7 @@ export const nanoqueryFactory = ([
         storeList.push(keyOrStore);
         storeIndexes.push(i);
       }
-    }
+    });
 
     const $storeKeys = batched(storeList, (...storeValues) => {
       for (let i = 0; i < storeValues.length; i++) {
