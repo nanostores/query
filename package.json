@@ -35,13 +35,16 @@
   "exports": {
     ".": {
       "types": "./dist/main.d.ts",
-      "import": "./dist/nanoquery.js",
       "react-native": "./dist/nanoquery.native.cjs",
-      "require": "./dist/nanoquery.umd.cjs"
+      "import": "./dist/nanoquery.js",
+      "require": "./dist/nanoquery.umd.cjs",
+      "default": "./dist/nanoquery.js"
     },
     "./react-native": {
       "types": "./dist/main.d.ts",
-      "require": "./dist/nanoquery.native.cjs"
+      "import": "./dist/nanoquery.native.cjs",
+      "require": "./dist/nanoquery.native.cjs",
+      "default": "./dist/nanoquery.native.cjs"
     }
   },
   "dependencies": {

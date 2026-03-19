@@ -5,10 +5,10 @@
 
 A tiny data fetcher for [Nano Stores](https://github.com/nanostores/nanostores).
 
-- **Small**. 1.8 Kb (minified and gzipped).
+- **Small**. Less than 2 Kb (minified and gzipped).
 - **Familiar DX**. If you've used [`swr`](https://swr.vercel.app/) or [`react-query`](https://react-query-v3.tanstack.com/), you'll get the same treatment, but for 10-20% of the size.
-- **Built-in cache**. `stale-while-revalidate` caching from  [HTTP RFC 5861](https://tools.ietf.org/html/rfc5861). User rarely sees unnecessary loaders or stale data.
-- **Revalidate cache**. Automaticallty revalidate on interval, refocus, network  recovery. Or just revalidate it manually.
+- **Built-in cache**. `stale-while-revalidate` caching from [HTTP RFC 5861](https://tools.ietf.org/html/rfc5861). User rarely sees unnecessary loaders or stale data.
+- **Revalidate cache**. Automatically revalidate on interval, refocus, network recovery. Or just revalidate it manually.
 - **Nano Stores first**. Finally, fetching logic *outside* of components. Plays nicely with [store events](https://github.com/nanostores/nanostores#store-events), [computed stores](https://github.com/nanostores/nanostores#computed-stores), [router](https://github.com/nanostores/router), and the rest.
 - **Transport agnostic**. Use GraphQL, REST codegen, plain fetch or anything, that returns Promises (Web Workers, SubtleCrypto, calls to WASM, etc.).
 
@@ -52,15 +52,18 @@ export const $currentPost = createFetcherStore<Post>(['/api/post/', $currentPost
 
 Third, just use it in your components. `createFetcherStore` returns the usual `atom()` from Nano Stores.
 
+> **Note:** before any component subscribes to the store, its value is `{ loading: false }` with no `data` or `error`. Once a component subscribes (via `useStore`), the fetcher fires and `loading` becomes `true`. Always check `data` first to handle this correctly.
+
 ```tsx
 // components/Post.tsx
 const Post = () => {
-  const { data, loading } = useStore($currentPost);
+  const { data, error, loading } = useStore($currentPost);
 
   if (data) return <div>{data.content}</div>;
+  if (error) return <>Failed to load</>;
   if (loading) return <>Loading...</>;
-  
-  return <>Error!</>;
+
+  return null;
 };
 
 ```
@@ -179,6 +182,39 @@ type MutationOptions = {
 
 You can also access the mutator function via `$addComment.mutate`—the function is the same.
 
+## Store states
+
+### Fetcher store
+
+| State | `loading` | `data` | `error` | `promise` | When |
+|-------|-----------|--------|---------|-----------|------|
+| Initial (no subscribers) | `false` | — | — | — | Before any component subscribes |
+| Loading (no cache) | `true` | — | — | `Promise` | First fetch, or after `invalidate` |
+| Loading (stale cache) | `true` | Previous `data` | — | `Promise` | Refetch when `cacheLifetime` cache exists |
+| Success | `false` | `T` | — | — | Fetcher resolved |
+| Error | `false` | Previous `data` or — | `E` | — | Fetcher rejected |
+| Conditional fetch disabled | `false` | — | — | — | Any key part is `null`/`undefined`/`false` |
+| Deduplicated (from cache) | `false` | `T` | — | — | Same key fetched within `dedupeTime` |
+
+Key behaviors:
+- `invalidate` wipes the cache entirely—the store goes back to "Loading (no cache)" with a spinner.
+- `revalidate` marks the cache as stale—the store shows "Loading (stale cache)" with the previous data visible.
+- When the store loses all subscribers (`onStop`), it resets to the initial state.
+
+### Mutator store
+
+| State | `loading` | `data` | `error` | When |
+|-------|-----------|--------|---------|------|
+| Initial | `false` | — | — | Before `mutate()` is called |
+| Loading | `true` | — | — | `mutate()` called, awaiting result |
+| Success | `false` | `Result` | — | Mutation resolved |
+| Error | `false` | — | `E` | Mutation rejected |
+
+Key behaviors:
+- `mutate()` always resets `data` and `error` before starting.
+- When `throttleCalls` is `true` (default), calling `mutate()` while already loading is a no-op.
+- When the store loses all subscribers, it resets to the initial state. Any in-flight mutation results are discarded.
+
 ## _Third returned item_
 
 (we didn't come up with a name for it 😅)
@@ -239,16 +275,17 @@ So, the best UI, we think, comes from this snippet:
 ```tsx
 // components/Post.tsx
 const Post = () => {
-  const { data, loading } = useStore($currentPost);
+  const { data, error, loading } = useStore($currentPost);
 
   if (data) return <div>{data.content}</div>;
+  if (error) return <>Failed to load</>;
   if (loading) return <>Loading...</>;
-  
-  return <>Error!</>;
+
+  return null;
 };
 ```
 
-This way you actually embrace the stale-while-revalidate concept and only show spinners when there's no cache, but other than that you always fall back to cached state.
+This way you actually embrace the stale-while-revalidate concept and only show spinners when there's no cache, but other than that you always fall back to cached state. Checking `data` first means you'll show cached content even during background revalidation.
 
 ### Local state and Pagination
 
@@ -316,9 +353,9 @@ onSet($someOutsideFactor, $specificStore.invalidate)
 
 ### Error handling
 
-`nanoquery`, `createFetcherStore` and `createMutationStore` all accept an optional setting called `onError`. Global `onError` handler is called for all errors thrown from fetcher and mutation calls unless you set a local `onError` handler for a specific store (then it "overwrites" the global one).
+`nanoquery`, `createFetcherStore` and `createMutatorStore` all accept an optional setting called `onError`. Global `onError` handler is called for all errors thrown from fetcher and mutation calls unless you set a local `onError` handler for a specific store (then it "overwrites" the global one).
 
-`nanoquery` and `createFetcherStore` both accept and argument `onErrorRetry`. It also cascades down from context to each fetcher and can be rewritten by a fetcher. By default it implements an exponential backoff strategy with an element of randomness, but you can set your own according to `OnErrorRetry` signature. If you want to disable automatic revalidation for error responses, set this value to `null`.
+`nanoquery` and `createFetcherStore` both accept an argument `onErrorRetry`. It also cascades down from context to each fetcher and can be rewritten by a fetcher. By default it implements an exponential backoff strategy with an element of randomness, but you can set your own according to `OnErrorRetry` signature. If you want to disable automatic revalidation for error responses, set this value to `null`.
 
 This feature is particularly handy for stuff like showing flash notifications for all errors.
 
