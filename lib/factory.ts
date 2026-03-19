@@ -137,8 +137,7 @@ export const nanoqueryFactory = ([
 
     // Leaving separate entities for these.
     // Intervals are useless for serializing, promises are not serializable at all
-    const _revalidateOnInterval = new Map<KeyInput, number>(),
-      _errorInvalidateTimeouts = new Map<Key, number>(),
+    const _errorInvalidateTimeouts = new Map<Key, number>(),
       _runningFetches = new Map<Key, Promise<any>>();
 
     // Used for testing to have the highest say in settings hierarchy
@@ -309,7 +308,8 @@ export const nanoqueryFactory = ([
         keyUnsub: Fn,
         keyStore: ReturnType<typeof getKeyStore>[0];
 
-      let evtUnsubs: Fn[] = [];
+      let evtUnsubs: Fn[] = [],
+        revalInterval: number;
 
       const handleNewListener = () => {
         if (prevKey)
@@ -343,12 +343,8 @@ export const nanoqueryFactory = ([
           revalidateOnReconnect,
         } = settings;
 
-        if (revalidateInterval > 0) {
-          _revalidateOnInterval.set(
-            keyInput,
-            setInterval(handleNewListener, revalidateInterval) as unknown as number
-          );
-        }
+        if (revalidateInterval > 0)
+          revalInterval = setInterval(handleNewListener, revalidateInterval) as unknown as number;
         if (revalidateOnFocus) evtUnsubs.push(events.on(FOCUS, handleNewListener));
         if (revalidateOnReconnect)
           evtUnsubs.push(events.on(RECONNECT, handleNewListener));
@@ -392,7 +388,7 @@ export const nanoqueryFactory = ([
         for (const fn of evtUnsubs) fn();
         evtUnsubs = [];
         keyUnsub?.();
-        clearInterval(_revalidateOnInterval.get(keyInput));
+        clearInterval(revalInterval);
       });
 
       return fetcherStore as FetcherStore<T, E>;
