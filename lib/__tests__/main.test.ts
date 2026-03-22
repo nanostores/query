@@ -1,4 +1,4 @@
-import { atom } from "nanostores";
+import {atom, onMount, onNotify, onSet, onStart, onStop} from "nanostores";
 import { nanoquery } from "../main";
 import { noop, delay } from "./setup";
 
@@ -11,6 +11,46 @@ afterEach(() => {
 });
 
 describe("fetcher tests", () => {
+  describe("given an unmounted store", () => {
+    it("works without registered event handlers", async () => {
+      const fetcher = vi.fn().mockImplementation(async () => true);
+
+      const keys = ["/api", "/test1"];
+
+      const [makeFetcher] = nanoquery();
+      const store = makeFetcher(keys, {fetcher});
+
+      await advance();
+
+      expect(fetcher).not.toHaveBeenCalled();
+      expect(store.value).toEqual({loading: false});
+    });
+
+    it.each([
+      { event: 'mount', method: onMount },
+      { event: 'start', method: onStart },
+      { event: 'stop', method: onStop },
+      { event: 'set', method: onSet },
+      { event: 'notify', method: onNotify },
+    ])("works with a registered $event event handler", async ({ method: onTestEvent }) => {
+      const fetcher = vi.fn().mockImplementation(async () => true);
+
+      const keys = ["/api", "/test2"];
+
+      const [makeFetcher] = nanoquery();
+      const store = makeFetcher(keys, {fetcher});
+
+      const eventHandler = vi.fn();
+      onTestEvent(store, eventHandler);
+
+      await advance();
+
+      expect(fetcher).not.toHaveBeenCalled();
+      expect(store.value).toEqual({loading: false});
+      expect(eventHandler).not.toHaveBeenCalled();
+    });
+  })
+
   test("fetches once for multiple subscriptions", async () => {
     const fetcher = vi.fn().mockImplementation(async () => true);
 
