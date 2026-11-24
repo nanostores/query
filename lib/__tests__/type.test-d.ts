@@ -78,4 +78,20 @@ describe("types", () => {
     fn(mutate);
     mutate();
   });
+
+  test("mutator resolves with Result | undefined", () => {
+    const [, createMutator] = nanoquery();
+
+    type Result = { res: number };
+    const $mutate = createMutator<void, Result>(async () => ({ res: 200 }));
+
+    // `mutate` resolves with `undefined` when a call is throttled or the
+    // mutator throws, so the declared return type must reflect that.
+    expectTypeOf($mutate.mutate).returns.resolves.toEqualTypeOf<
+      Result | undefined
+    >();
+
+    const { mutate } = $mutate.get();
+    expectTypeOf(mutate).returns.resolves.toEqualTypeOf<Result | undefined>();
+  });
 });

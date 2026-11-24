@@ -923,6 +923,38 @@ describe("mutator tests", () => {
       expect(mock).toHaveBeenCalledTimes(5);
     });
 
+    test("mutate resolves with undefined when a call is throttled", async () => {
+      const [, makeMutator] = nanoquery();
+      const mock = vi.fn().mockImplementation(async () => {
+        await delay(100);
+        return "ok";
+      });
+
+      const $mutate = makeMutator<void, string>(mock);
+      $mutate.listen(noop);
+
+      const first = $mutate.mutate();
+      const throttled = await $mutate.mutate();
+      expect(throttled).toBeUndefined();
+
+      await advance(200);
+      expect(await first).toBe("ok");
+      expect(mock).toHaveBeenCalledOnce();
+    });
+
+    test("mutate resolves with undefined when the mutator throws", async () => {
+      const [, makeMutator] = nanoquery();
+      const error = new Error("nope");
+      const $mutate = makeMutator<void, string>(async () => {
+        throw error;
+      });
+      $mutate.listen(noop);
+
+      const result = await $mutate.mutate();
+      expect(result).toBeUndefined();
+      expect($mutate.value!.error).toBe(error);
+    });
+
     test(`transitions work if you're not subscribed to the store`, async () => {
       const [, makeMutator] = nanoquery();
       const $mutate = makeMutator<void, string>(async () => "hey");
