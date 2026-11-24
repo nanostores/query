@@ -97,8 +97,8 @@ export type ManualMutator<Data = void, Result = unknown> = (args: {
   ) => [(newValue?: T) => void, T | undefined];
 }) => Promise<Result>;
 export type MutateCb<Data, Result = unknown> = Data extends void
-  ? () => Promise<Result>
-  : (data: Data) => Promise<Result>;
+  ? () => Promise<Result | undefined>
+  : (data: Data) => Promise<Result | undefined>;
 export type MutatorStore<Data = void, Result = unknown, E = Error> = MapStore<{
   mutate: MutateCb<Data, Result>;
   data?: Result;
